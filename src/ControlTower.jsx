@@ -139,6 +139,7 @@ const RAW = {
     { d:"2026-09-12", att:6, nreg:2, priv:6, adm:2, onadm:2, disch:0, privRev:249000, rConv:.3333, rTotRev:249000, rARPE:41500, rMTD:2007000, ops:{revAch:"4.46%"} },
     { d:"2026-09-13", att:3, nreg:3, priv:3, adm:1, onadm:3, disch:2, privRev:226000, rConv:.3333, rTotRev:226000, rARPE:75333.33, rMTD:2233000, ops:{revAch:"4.96%"} },
     { d:"2026-09-14", att:5, nreg:2, priv:5, adm:0, onadm:1, disch:0, privRev:81500, rConv:0, rTotRev:81500, rARPE:16300, rMTD:2314500, ops:{revAch:"5.14%"} },
+    { d:"2026-09-15", att:3, nreg:1, priv:3, adm:0, onadm:0, disch:1, privRev:139000, rConv:0, rTotRev:139000, rARPE:46333.33, rMTD:2453500, ops:{revAch:"5.45%"} },
   ],
   NLB: [
     { d:"2026-09-01", att:23, nreg:19, hmo:23, adm:15, onadm:69, disch:23, yld:15, tat:40, det:0, prom:23, indiff:0, hmoRev:4170405.70, rConv:.6522, rPctY:.6522, rNPS:1, rTotRev:4170405.70, rARPE:181321.99, rMTD:4170405.70 },
@@ -155,6 +156,7 @@ const RAW = {
     { d:"2026-09-12", att:20, nreg:20, hmo:20, adm:11, onadm:84, disch:16, yld:11, tat:40, det:0, prom:16, indiff:0, hmoRev:2618423.00, rConv:.55, rPctY:.55, rNPS:1, rTotRev:2618423.00, rARPE:130921.15, rMTD:48456562.90 },
     { d:"2026-09-13", att:26, nreg:26, hmo:26, adm:25, onadm:83, disch:25, yld:25, tat:40, det:0, prom:25, indiff:0, hmoRev:7733259.50, rConv:.9615, rPctY:.9615, rNPS:1, rTotRev:7733259.50, rARPE:297433.06, rMTD:56189822.40 },
     { d:"2026-09-14", att:19, nreg:19, hmo:19, adm:9,  onadm:83, disch:10, yld:9,  tat:40, det:0, prom:10, indiff:0, hmoRev:5280626.50, rConv:.4737, rPctY:.4737, rNPS:1, rTotRev:5280626.50, rARPE:277927.71, rMTD:61470448.90 },
+    { d:"2026-09-15", att:33, nreg:34, hmo:33, adm:19, onadm:75, disch:7,  yld:19, tat:40, det:0, prom:7,  indiff:0, hmoRev:5328796.60, rConv:.5758, rPctY:.5758, rNPS:1, rTotRev:5328796.60, rARPE:161478.68, rMTD:66799245.50 },
   ],
   ROD: [
     { d:"2026-09-01", att:8, nreg:0, priv:0, hmo:8,  adm:0, onadm:0, disch:2, yld:8, tat:25, det:0, prom:7, indiff:0, privRev:0, hmoRev:369687.24, rConv:0, rPctY:1, rNPS:1, rTotRev:369687.24, rARPE:46210.91, rMTD:369687.24, ops:{mort:"0",ipc:"90",medErr:"0",esc:"0",wait:"25",coll:"0",revAch:"0.82%",refund:"0",bed:"0",crit:"0",pwr:"0",amb:"0",staff:"0",vac:"0",wfs:"95",emr:"90",out:"0",rep:"95"} },
@@ -171,6 +173,7 @@ const RAW = {
     { d:"2026-09-12", att:2, nreg:0, priv:1, hmo:1,  adm:0, onadm:0, disch:0, yld:2, tat:20, det:0, prom:2, indiff:0, privRev:31163, hmoRev:27258,   rConv:0, rPctY:1, rNPS:1, rTotRev:58421,   rARPE:29210.50, rMTD:3834095.56, ops:{bed:"0",staff:"0",vac:"0",wfs:"95",emr:"90",rep:"95"} },
     { d:"2026-09-13", att:3, nreg:0, priv:0, hmo:3,  adm:0, onadm:0, disch:0, yld:3, tat:20, det:0, prom:2, indiff:0, hmoRev:79725,   rConv:0, rPctY:1, rNPS:1, rTotRev:79725,   rARPE:26575,    rMTD:3913820.56, ops:{staff:"0",vac:"0",wfs:"95",emr:"90",rep:"95"} },
     { d:"2026-09-14", att:4, nreg:1, priv:0, hmo:4,  adm:0, onadm:0, disch:0, yld:4, tat:20, det:0, prom:4, indiff:0, hmoRev:59438.51, rConv:0, rPctY:1, rNPS:1, rTotRev:59438.51,rARPE:14859.63, rMTD:3973259.07, ops:{staff:"0",vac:"0",wfs:"95",emr:"90",rep:"95"} },
+    { d:"2026-09-15", att:5, nreg:2, priv:0, hmo:5,  adm:3, onadm:3, disch:0, yld:5, tat:20, det:0, prom:4, indiff:0, hmoRev:208362.10, rConv:.60, rPctY:1, rNPS:1, rTotRev:208362.10,rARPE:41672.42, rMTD:4181621.17, ops:{mort:"0",ipc:"90",medErr:"0",esc:"0",wait:"20",coll:"0",revAch:"9.29%",refund:"0",bed:"3",crit:"0",pwr:"0",amb:"0",staff:"0",vac:"0",wfs:"95",emr:"90",out:"0",rep:"95"} },
   ],
   TAL: [
     { d:"2026-09-01", att:19,nreg:0,priv:5, hmo:12,lash:0,nhia:2,adm:1,onadm:2,disch:1,yld:1,tat:50,det:0,prom:1,indiff:0,privRev:187850,hmoRev:278956.26,nhiaRev:3350,compRev:0,      rConv:.0526,rPctY:.0526,rNPS:1,rTotRev:470156.26,rARPE:24745.07,rMTD:470156.26, ops:{mort:"0",ipc:"0",medErr:"0",esc:"0",wait:"50",coll:"191200",revAch:"1.18%",refund:"0",bed:"2",crit:"0",pwr:"0",amb:"100%",staff:"0",vac:"2",wfs:"0",emr:"0",out:"0",rep:"90"} },
@@ -202,6 +205,7 @@ const RAW = {
     { d:"2026-09-12", att:13,nreg:5,priv:2,hmo:11,adm:3,onadm:2,disch:1,yld:10,tat:30,det:0,prom:7, indiff:3,privRev:68000,hmoRev:165953.93,rConv:.2308,rPctY:.7692,rNPS:.70,  rTotRev:233953.93,rARPE:17996.46,rMTD:6309466.68,ops:{mort:"0",ipc:"90%",medErr:"0",esc:"0",wait:"30",coll:"68000",revAch:"14.02%",refund:"0",bed:"17.00%",crit:"0",pwr:"0",amb:"90%",staff:"0",vac:"3",wfs:"90%",emr:"80%",out:"0",rep:"0"} },
     { d:"2026-09-13", att:12,nreg:1,priv:2,hmo:10,adm:2,onadm:4,disch:5,yld:7, tat:25,det:0,prom:6, indiff:1,privRev:93000,hmoRev:333519.69,rConv:.1667,rPctY:.5833,rNPS:.8571,rTotRev:426519.69,rARPE:35543.31,rMTD:6735986.37,ops:{mort:"0",ipc:"90%",medErr:"0",esc:"0",wait:"25",coll:"93000",revAch:"14.97%",refund:"0",bed:"13.00%",crit:"0",pwr:"0",amb:"90%",staff:"0",vac:"3",wfs:"90%",emr:"80%",out:"0",rep:"0"} },
     { d:"2026-09-14", att:22,nreg:2,priv:7,hmo:13,nhia:2,adm:5,onadm:8,disch:0,yld:18,tat:35,det:0,prom:13,indiff:5,privRev:114500,hmoRev:78624.77,nhiaRev:3500,rConv:.2273,rPctY:.8182,rNPS:.7222,rTotRev:196624.77,rARPE:8937.49,rMTD:6932611.14,ops:{mort:"0",ipc:"90%",medErr:"0",esc:"0",wait:"35",coll:"118000",revAch:"15.41%",refund:"0",bed:"27.00%",crit:"0",pwr:"0",amb:"90%",staff:"0",vac:"3",wfs:"90%",emr:"80%",out:"0",rep:"0"} },
+    { d:"2026-09-15", att:38,nreg:5,priv:15,hmo:22,nhia:1,adm:3,onadm:7,disch:3,yld:32,tat:40,det:1,prom:27,indiff:4,privRev:311600,hmoRev:506261.75,nhiaRev:1500,rConv:.0789,rPctY:.8421,rNPS:.8125,rTotRev:819361.75,rARPE:21562.15,rMTD:7751972.89,ops:{mort:"0",ipc:"90%",medErr:"0",esc:"0",wait:"40",coll:"313100",revAch:"17.23%",refund:"0",bed:"23%",crit:"0",pwr:"0",amb:"90%",staff:"0",vac:"3",wfs:"90%",emr:"75%",out:"0",rep:"0"} },
   ],
 };
 
