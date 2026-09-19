@@ -233,8 +233,35 @@ const RAW = {
   MTP: [],   // Sep-2026+ tab has no data reported yet; intentionally no rows
 };
 
-function loadFromSource() {
-  return { meta: SOURCE_META, hospitals: CONFIG.hospitals.map(h => ({ ...h, rows: RAW[h.id] || [] })) };
+// Reporting periods are never hardcoded: every distinct YYYY-MM prefix found across every
+// hospital's submitted dates in RAW becomes a selectable period (spec "no month is assumed").
+function getAvailableMonths() {
+  const months = new Set();
+  Object.values(RAW).forEach(rows => rows.forEach(r => months.add(r.d.slice(0, 7))));
+  return [...months].sort();
+}
+
+// Derives period.start / period.end from the calendar month, and period.asOfDate from the
+// latest date actually present in that month's data (one day past it) — never from the
+// system clock, since this is a point-in-time snapshot with no independent "today".
+function derivePeriod(periodId) {
+  const [y, m] = periodId.split("-").map(Number);
+  const start = `${periodId}-01`;
+  const end = `${periodId}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+  let maxDate = start;
+  Object.values(RAW).forEach(rows => rows.forEach(r => { if (r.d.startsWith(periodId) && r.d > maxDate) maxDate = r.d; }));
+  const asOfObj = new Date(maxDate + "T00:00:00");
+  asOfObj.setDate(asOfObj.getDate() + 1);
+  const asOfDate = asOfObj.toISOString().slice(0, 10);
+  const label = new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  return { id: periodId, label, start, end, asOfDate };
+}
+
+function loadFromSource(periodId) {
+  return {
+    meta: SOURCE_META,
+    hospitals: CONFIG.hospitals.map(h => ({ ...h, rows: (RAW[h.id] || []).filter(r => r.d.startsWith(periodId)) })),
+  };
 }
 
 /* ===========================================================================
@@ -253,7 +280,7 @@ const num = v => (typeof v === "number" && isFinite(v) ? v : null);
 
 function cell(raw, { na=false } = {}) {
   if (na) return { value:null, state:STATE.NA };
-  if (raw === undefined || raw === null) return { value:null, state:STATE.INCOMPLETE };
+  if (raw === undefined || raw === null || raw === "") return { value:null, state:STATE.INCOMPLETE };
   if (isErr(raw)) return { value:null, state:STATE.EXCEPTION, note:`Source contains spreadsheet error ${raw}` };
   if (raw === 0) return { value:0, state:STATE.ZERO };
   return { value:raw, state:STATE.VALID };
@@ -267,6 +294,11 @@ function buildCanonical(source) {
     // Fields never populated on any submitted day: surfaced as a question, not an assertion.
     const everSeen = new Set();
     h.rows.forEach(r => Object.keys(r).forEach(k => { if (r[k] !== null && r[k] !== undefined && k !== "ops") everSeen.add(k); }));
+
+    // Same treatment for the operational/clinical/workforce/digital-systems columns nested
+    // under `ops` — they get the identical N/A / not-observed / blank / value state machine.
+    const opsEverSeen = new Set();
+    h.rows.forEach(r => { const o = r.ops || {}; OPS_KEYS.forEach(k => { if (o[k] !== null && o[k] !== undefined && o[k] !== "") opsEverSeen.add(k); }); });
 
     const records = h.rows.map(r => {
       const f = {};
@@ -290,10 +322,18 @@ function buildCanonical(source) {
         f.rNPS = { value:null, state:STATE.INCOMPLETE, note:"NPS survey parameters (Detractors/Promoters/Indifferent) were not filled in for this date." };
       }
 
+      const opsF = {};
+      OPS_KEYS.forEach(k => {
+        const raw = (r.ops || {})[k];
+        if (naFields.has(k)) { opsF[k] = cell(raw, { na:true }); return; }
+        if (!opsEverSeen.has(k)) { opsF[k] = { value:null, state:STATE.NOT_OBSERVED, note:"No value submitted on any day this period — confirm whether this field applies." }; return; }
+        opsF[k] = cell(raw, { na:false });
+      });
+
       const submitted = CORE_FIELDS.some(k => r[k] !== null && r[k] !== undefined);
       const complete = ["att","adm","rTotRev"].every(k => r[k] !== null && r[k] !== undefined);
 
-      return { hospitalId:h.id, date:r.d, f, ops:r.ops || {}, submitted, complete, _raw:r };
+      return { hospitalId:h.id, date:r.d, f, opsF, ops:r.ops || {}, submitted, complete, _raw:r };
     });
 
     return { id:h.id, name:h.name, sheetId:h.sheetId, naFields:[...naFields], naReason:naCfg?.reason || null, records };
@@ -378,21 +418,21 @@ function computeHospitalKPIs(hosp) {
    "Reporting Compliance Rate" column is deliberately NOT used as truth.
    =========================================================================== */
 
-function expectedDates(cal) {
+function expectedDates(cal, period) {
   const out = [];
-  const start = new Date(CONFIG.period.start + "T00:00:00");
-  const asOf  = new Date(CONFIG.asOfDate + "T00:00:00");
+  const start = new Date(period.start + "T00:00:00");
+  const asOf  = new Date(period.asOfDate + "T00:00:00");
   for (let t = new Date(start); t <= asOf; t.setDate(t.getDate() + 1)) {
     const iso = t.toISOString().slice(0,10);
-    if (iso === CONFIG.asOfDate && !cal.countCurrentDayAsDue) continue;
+    if (iso === period.asOfDate && !cal.countCurrentDayAsDue) continue;
     if (cal.cadence === "WEEKDAYS" && (t.getDay() === 0 || t.getDay() === 6)) continue;
     out.push(iso);
   }
   return out;
 }
 
-function computeReporting(hosp, cal) {
-  const due = expectedDates(cal);
+function computeReporting(hosp, cal, period) {
+  const due = expectedDates(cal, period);
   const byDate = new Map(hosp.records.map(r => [r.date, r]));
   const missing = [], incomplete = [];
   due.forEach(d => {
@@ -437,12 +477,13 @@ const RULES = [
 
 const TOL = { money: 1, ratio: 0.005, count: 0.5 };
 let SEQ = 0;
-const mk = (o) => ({ id:`EX-${String(++SEQ).padStart(3,"0")}`, status:"OPEN", severity:null, owner:null,
-  ownerRole: CONFIG.ownership[o.categoryKey]?.role ?? null, sla:null, escalation:0,
-  identified: CONFIG.asOfDate, closedOn:null, evidence:null,
-  history:[{ at:CONFIG.asOfDate, what:"Created by rule " + o.rule, by:"Exception engine" }], ...o });
 
-function generateExceptions(canon, kpis, reporting) {
+function generateExceptions(canon, kpis, reporting, period) {
+  const asOfDate = period.asOfDate;
+  const mk = (o) => ({ id:`EX-${String(++SEQ).padStart(3,"0")}`, status:"OPEN", severity:null, owner:null,
+    ownerRole: CONFIG.ownership[o.categoryKey]?.role ?? null, sla:null, escalation:0,
+    identified: asOfDate, closedOn:null, evidence:null,
+    history:[{ at:asOfDate, what:"Created by rule " + o.rule, by:"Exception engine" }], ...o });
   const out = [];
   canon.forEach(h => {
     const rep = reporting[h.id], K = kpis[h.id];
@@ -591,6 +632,55 @@ const OPS_LABEL = {
   out:"System outage count", rep:"Reporting compliance rate (sheet-entered)",
 };
 
+const OPS_KEYS = Object.keys(OPS_LABEL);
+
+/* ===========================================================================
+   SECTION 6B — FULL SCHEMA REGISTRY  (prompt "literally every one of the 44
+   standardised schema columns")
+   One entry per raw column — payer attendance, payer revenue and every
+   clinical/operational/workforce/digital-systems field — so any screen can
+   render the complete schema instead of a curated subset.
+   =========================================================================== */
+
+const TOP_LABEL = {
+  att:"Total attendance", nreg:"New registrations", priv:"Private attendance", hmo:"HMO attendance",
+  lash:"LASHMA attendance", nhia:"NHIA attendance", comp:"Company attendance", adm:"Admissions",
+  rConv:"Conversion rate (reported)", onadm:"On-admission census", disch:"Discharges", yld:"Yield",
+  rPctY:"Percentage yield (reported)", tat:"Turnaround time (mins)", det:"NPS detractors",
+  prom:"NPS promoters", indiff:"NPS indifferent", rNPS:"NPS (reported)",
+  privRev:"Private revenue", hmoRev:"HMO revenue", nhiaRev:"NHIA revenue", compRev:"Company revenue",
+  rTotRev:"Total revenue (reported)", rARPE:"ARPE (reported)", rMTD:"Revenue MTD (reported)",
+};
+
+const FIELD_LABEL = { ...TOP_LABEL, ...OPS_LABEL };
+
+const FIELD_FORMAT = {
+  att:"int", nreg:"int", priv:"int", hmo:"int", lash:"int", nhia:"int", comp:"int", adm:"int",
+  onadm:"int", disch:"int", yld:"int", det:"int", prom:"int", indiff:"int",
+  rConv:"pct", rPctY:"pct", rNPS:"pct", tat:"num",
+  privRev:"money", hmoRev:"money", nhiaRev:"money", compRev:"money", rTotRev:"money", rARPE:"money", rMTD:"money",
+};
+
+// Exact order of the 44 standardised columns: date, then every payer attendance and revenue
+// field, then every clinical/operational/workforce/digital-systems field.
+const ALL_FIELD_KEYS = [
+  "att","nreg","priv","hmo","lash","nhia","comp","adm","rConv","onadm","disch","yld","rPctY","tat",
+  "det","prom","indiff","rNPS","privRev","hmoRev","nhiaRev","compRev","rTotRev","rARPE","rMTD",
+  ...OPS_KEYS,
+];
+
+const fieldSource = key => OPS_KEYS.includes(key) ? "opsF" : "f";
+const fieldCell = (rec, key) => (fieldSource(key) === "opsF" ? rec.opsF : rec.f)[key];
+
+function formatFieldValue(key, value) {
+  const kind = FIELD_FORMAT[key] || "raw";
+  if (kind === "int") return int(value);
+  if (kind === "money") return money(value);
+  if (kind === "pct") return pct(value, 1);
+  if (kind === "num") return typeof value === "number" ? value.toLocaleString(undefined,{ maximumFractionDigits:2 }) : String(value);
+  return value === null || value === undefined ? "—" : String(value);
+}
+
 /* ===========================================================================
    SECTION 7 — RAG EVALUATOR  (spec §12)
    No thresholds were supplied, so nothing is rated by default. The evaluator
@@ -696,25 +786,80 @@ function Unavailable({ title, reason, needs }) {
   );
 }
 
+// Renders one field's cell exactly the same way everywhere: N/A vs not-reported vs blank
+// vs a real value. Used by every daily table in the app, including the operational
+// fields that used to be shown as plain, unstated strings.
+function StateCell({ cellObj, naReason, format }) {
+  if (!cellObj) return <span style={{ color:C.inkFaint }}>—</span>;
+  if (cellObj.state === STATE.NA) return <span title={naReason || "Declared not applicable"} style={{ color:C.info, fontSize:11 }}>N/A</span>;
+  if (cellObj.state === STATE.NOT_OBSERVED) return <span title={cellObj.note} style={{ color:C.inkFaint, fontSize:11 }}>not obs.</span>;
+  if (cellObj.state === STATE.INCOMPLETE) return <span title="Blank in source" style={{ color:C.amber }}>blank</span>;
+  if (cellObj.state === STATE.EXCEPTION) return <span title={cellObj.note} style={{ color:C.red, fontSize:11 }}>error</span>;
+  return <>{format(cellObj.value)}</>;
+}
+
+// Full daily history for a set of schema fields: every hospital, every submitted date in
+// the selected period. Used in place of "latest value only" tables and "unavailable"
+// placeholders wherever the underlying field actually exists in the schema.
+function DailyHistoryTable({ model, fields }) {
+  const rows = [];
+  model.canon.forEach(h => h.records.forEach(r => { if (r.submitted) rows.push({ h, r }); }));
+  return (
+    <div style={{ overflowX:"auto" }}>
+      <table>
+        <thead><tr>
+          <th style={th}>Hospital</th><th style={th}>Date</th>
+          {fields.map(f => <th key={f} style={{...th,textAlign:"right"}}>{FIELD_LABEL[f] || f}</th>)}
+        </tr></thead>
+        <tbody>
+          {rows.length === 0 && (
+            <tr><td style={td} colSpan={2 + fields.length}>No submitted records for this period.</td></tr>
+          )}
+          {rows.map(({ h, r }) => (
+            <tr key={`${h.id}-${r.date}`}>
+              <td style={td}><Mono style={{ fontSize:11, color:C.inkFaint }}>{h.id}</Mono> <span style={{ marginLeft:6 }}>{h.name}</span></td>
+              <td style={td}><Mono style={{ fontSize:11.5 }}>{r.date}</Mono></td>
+              {fields.map(f => (
+                <td key={f} style={tdR}>
+                  <StateCell cellObj={fieldCell(r, f)} naReason={h.naReason} format={v => formatFieldValue(f, v)} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- app root */
 
 export default function ControlTower() {
+  const availableMonths = useMemo(() => getAvailableMonths(), []);
   const [module, setModule] = useState("overview");
   const [cal, setCal] = useState(CONFIG.reportingCalendar);
   const [thresholds, setThresholds] = useState(CONFIG.thresholds);
   const [selHospital, setSelHospital] = useState("ULT");
+  const [selectedPeriod, setSelectedPeriod] = useState(() => availableMonths[availableMonths.length - 1]);
   const [exState, setExState] = useState({});           // id -> {status, owner, severity, sla, evidence, history}
   const [exFilter, setExFilter] = useState("ALL");
 
+  // Switching the reporting period must leave nothing behind from the previous one: the
+  // exception register is regenerated per period below, and any open/closed/owner overrides
+  // recorded against the old period's exception IDs are cleared rather than silently reapplied
+  // to a different period's exceptions that happen to reuse the same ID.
+  const changePeriod = (id) => { setSelectedPeriod(id); setExState({}); };
+
   const model = useMemo(() => {
     SEQ = 0;
-    const source = loadFromSource();
+    const period = derivePeriod(selectedPeriod);
+    const source = loadFromSource(period.id);
     const canon = buildCanonical(source);
     const kpis = Object.fromEntries(canon.map(h => [h.id, computeHospitalKPIs(h)]));
-    const reporting = Object.fromEntries(canon.map(h => [h.id, computeReporting(h, cal)]));
-    const exceptions = generateExceptions(canon, kpis, reporting);
-    return { source, canon, kpis, reporting, exceptions };
-  }, [cal]);
+    const reporting = Object.fromEntries(canon.map(h => [h.id, computeReporting(h, cal, period)]));
+    const exceptions = generateExceptions(canon, kpis, reporting, period);
+    return { source, canon, kpis, reporting, exceptions, period };
+  }, [cal, selectedPeriod]);
 
   const ex = model.exceptions.map(e => ({ ...e, ...(exState[e.id] || {}) }));
   const openEx = ex.filter(e => e.status !== "CLOSED");
@@ -744,7 +889,7 @@ export default function ControlTower() {
   const updateEx = (id, patch, note) => setExState(s => {
     const cur = s[id] || {};
     const base = model.exceptions.find(e => e.id === id);
-    const history = [...(cur.history || base.history), { at:CONFIG.asOfDate, what:note, by:"Control Tower Lead" }];
+    const history = [...(cur.history || base.history), { at:model.period.asOfDate, what:note, by:"Control Tower Lead" }];
     return { ...s, [id]: { ...cur, ...patch, history } };
   });
 
@@ -770,8 +915,18 @@ export default function ControlTower() {
             Care<span style={{ color:C.brand }}>One</span>
           </div>
           <div style={{ fontSize:11, color:C.inkDim, marginTop:2 }}>Enterprise Control Tower</div>
-          <Mono style={{ fontSize:10, color:C.inkFaint, marginTop:5, display:"block" }}>v0.1 · {CONFIG.period.label}</Mono>
+          <Mono style={{ fontSize:10, color:C.inkFaint, marginTop:5, display:"block" }}>v0.1 · {model.period.label}</Mono>
         </div>
+
+        <div style={{ padding:"12px 16px", borderBottom:`1px solid ${C.line}` }}>
+          <label style={{ display:"flex", flexDirection:"column", gap:4, fontSize:10.5, color:C.inkFaint }}>
+            Reporting period
+            <select value={selectedPeriod} onChange={e=>changePeriod(e.target.value)} style={{ ...inputS, width:"100%" }}>
+              {availableMonths.map(m => <option key={m} value={m}>{derivePeriod(m).label}</option>)}
+            </select>
+          </label>
+        </div>
+
         {groups.map(g => (
           <div key={g} style={{ padding:"10px 0 4px" }}>
             <div style={{ fontSize:10.5, color:C.inkFaint, padding:"0 16px 5px" }}>{g}</div>
@@ -798,7 +953,7 @@ export default function ControlTower() {
         {/* status strip */}
         <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:20, padding:"10px 22px",
                       background:C.panel2, borderBottom:`1px solid ${C.line}`, position:"sticky", top:0, zIndex:5 }}>
-          <div><span style={{ color:C.inkFaint, fontSize:11 }}>Reporting date </span><Mono style={{ fontSize:12 }}>{CONFIG.asOfDate}</Mono></div>
+          <div><span style={{ color:C.inkFaint, fontSize:11 }}>Reporting date </span><Mono style={{ fontSize:12 }}>{model.period.asOfDate}</Mono></div>
           <div><span style={{ color:C.inkFaint, fontSize:11 }}>Source </span>
             <Mono style={{ fontSize:12, color:C.amber }}>Google Sheets · snapshot</Mono></div>
           <div><span style={{ color:C.inkFaint, fontSize:11 }}>Read at </span><Mono style={{ fontSize:12 }}>{model.source.meta.readAt.slice(11,16)}</Mono></div>
@@ -821,7 +976,7 @@ export default function ControlTower() {
           {module === "workforce"  && <UnvalidatedDomain domain="People & workforce" fields={["staff","vac","wfs"]} model={model} ex={ex} />}
           {module === "digital"    && <UnvalidatedDomain domain="Digital systems" fields={["emr","out"]} model={model} ex={ex} />}
           {module === "followup"   && <FollowUp />}
-          {module === "config"     && <ConfigModule {...{thresholds, setThresholds, cal, setCal}} />}
+          {module === "config"     && <ConfigModule {...{thresholds, setThresholds, cal, setCal, period: model.period}} />}
           {module === "lineage"    && <Lineage {...{model}} />}
         </div>
       </main>
@@ -840,13 +995,13 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
       <div style={{ marginBottom:18 }}>
         <h1 style={{ margin:0, fontSize:22, fontWeight:600, letterSpacing:-.3 }}>Network overview</h1>
         <p style={{ margin:"5px 0 0", fontSize:13, color:C.inkDim, maxWidth:"78ch", lineHeight:1.6 }}>
-          Seven hospitals, {CONFIG.period.label}, computed from payer-level components rather than the sheets' own
+          {CONFIG.hospitals.length} hospitals, {model.period.label}, computed from payer-level components rather than the sheets' own
           calculated columns. Figures cover submitted days only.
         </p>
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(168px,1fr))", gap:10, marginBottom:18 }}>
-        <Stat label="Total network revenue" value={moneyK(network.revenue)} sub={`${CONFIG.period.label}, submitted days`} />
+        <Stat label="Total network revenue" value={moneyK(network.revenue)} sub={`${model.period.label}, submitted days`} />
         <Stat label="Total patient attendance" value={int(network.attendance)} sub={`${int(network.newReg)} new registrations`} />
         <Stat label="Total admissions" value={int(network.admissions)} sub={`${int(network.discharges)} discharges`} />
         <Stat label="Network ARPE" value={money(network.arpe)} sub="Revenue ÷ attendance" />
@@ -1025,53 +1180,34 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
         </ResponsiveContainer>
       </Panel>
 
-      <Panel title="Daily record" note="Every figure here is recomputed from payer components. Cell markers show the state of the underlying source value.">
+      <Panel title="Daily record" note="Every one of the 44 standardised schema columns, for every expected reporting date this period. Cell markers show the state of the underlying source value.">
         <div style={{ overflowX:"auto" }}>
           <table>
             <thead><tr>
               <th style={th}>Date</th><th style={th}>Day</th>
-              <th style={{...th,textAlign:"right"}}>Attendance</th><th style={{...th,textAlign:"right"}}>Private</th>
-              <th style={{...th,textAlign:"right"}}>HMO</th><th style={{...th,textAlign:"right"}}>LASHMA</th>
-              <th style={{...th,textAlign:"right"}}>NHIA</th><th style={{...th,textAlign:"right"}}>Company</th>
-              <th style={{...th,textAlign:"right"}}>Adm</th><th style={{...th,textAlign:"right"}}>Conv</th>
-              <th style={{...th,textAlign:"right"}}>Revenue</th><th style={{...th,textAlign:"right"}}>ARPE</th>
-              <th style={{...th,textAlign:"right"}}>NPS</th>
+              {ALL_FIELD_KEYS.map(f => <th key={f} style={{...th,textAlign:"right"}}>{FIELD_LABEL[f] || f}</th>)}
             </tr></thead>
             <tbody>
               {R.due.map(d => {
                 const rec = h.records.find(r => r.date === d);
-                const k = rec ? K.perDay[h.records.indexOf(rec)] : null;
                 if (!rec || !rec.submitted) return (
                   <tr key={d}>
                     <td style={{...td, color:C.amber}}>{dayLabel(d)}</td>
                     <td style={{...td, color:C.inkFaint}}>{weekday(d)}</td>
-                    <td colSpan={11} style={{ ...td, color:C.amber, fontSize:12 }}>
+                    <td colSpan={ALL_FIELD_KEYS.length} style={{ ...td, color:C.amber, fontSize:12 }}>
                       No record submitted · potential reporting gap
                     </td>
                   </tr>
                 );
-                const c = (key) => {
-                  const f = rec.f[key];
-                  if (!f) return <span style={{ color:C.inkFaint }}>—</span>;
-                  if (f.state === STATE.NA) return <span title={h.naReason} style={{ color:C.info, fontSize:11 }}>N/A</span>;
-                  if (f.state === STATE.NOT_OBSERVED) return <span title={f.note} style={{ color:C.inkFaint, fontSize:11 }}>not obs.</span>;
-                  if (f.state === STATE.INCOMPLETE) return <span title="Blank in source" style={{ color:C.amber }}>blank</span>;
-                  return int(f.value);
-                };
                 return (
                   <tr key={d}>
                     <td style={td}>{dayLabel(d)}{!rec.complete && <span title="Incomplete submission" style={{ color:C.amber, marginLeft:5 }}>◐</span>}</td>
                     <td style={{...td, color:C.inkFaint}}>{weekday(d)}</td>
-                    <td style={tdR}>{int(k.attendance)}</td>
-                    <td style={tdR}>{c("priv")}</td><td style={tdR}>{c("hmo")}</td><td style={tdR}>{c("lash")}</td>
-                    <td style={tdR}>{c("nhia")}</td><td style={tdR}>{c("comp")}</td>
-                    <td style={tdR}>{int(k.admissions)}</td>
-                    <td style={tdR}>{pct(k.conversion,1)}</td>
-                    <td style={tdR}>{money(k.revenue)}</td>
-                    <td style={tdR}>{money(k.arpe)}</td>
-                    <td style={tdR}>{rec.f.rNPS.state===STATE.INCOMPLETE
-                      ? <span title="Survey parameters not filled in for this date" style={{ color:C.inkFaint, fontSize:11 }}>not filled</span>
-                      : pct(k.nps,0)}</td>
+                    {ALL_FIELD_KEYS.map(f => (
+                      <td key={f} style={tdR}>
+                        <StateCell cellObj={fieldCell(rec, f)} naReason={h.naReason} format={v => formatFieldValue(f, v)} />
+                      </td>
+                    ))}
                   </tr>
                 );
               })}
@@ -1169,12 +1305,12 @@ function Exceptions({ ex, updateEx, exFilter, setExFilter, model }) {
         </div>
       </Panel>
 
-      {open && <ExceptionDetail e={list.find(x=>x.id===open)} updateEx={updateEx} />}
+      {open && <ExceptionDetail e={list.find(x=>x.id===open)} updateEx={updateEx} asOfDate={model.period.asOfDate} />}
     </>
   );
 }
 
-function ExceptionDetail({ e, updateEx }) {
+function ExceptionDetail({ e, updateEx, asOfDate }) {
   const [owner, setOwner] = useState(e.owner || "");
   const [sla, setSla] = useState(e.sla || "");
   const [evidence, setEvidence] = useState(e.evidence || "");
@@ -1212,7 +1348,7 @@ function ExceptionDetail({ e, updateEx }) {
         <label style={{ ...lbl, flex:1 }}>Closure evidence
           <input value={evidence} onChange={ev=>setEvidence(ev.target.value)} placeholder="What was done, and how it was verified" style={{ ...inputS, width:"100%" }} />
         </label>
-        <button disabled={!evidence} onClick={()=>updateEx(e.id,{status:"CLOSED",evidence,closedOn:CONFIG.asOfDate},`Closed with evidence: ${evidence}`)}
+        <button disabled={!evidence} onClick={()=>updateEx(e.id,{status:"CLOSED",evidence,closedOn:asOfDate},`Closed with evidence: ${evidence}`)}
                 style={{ ...btn, opacity: evidence?1:.4, cursor: evidence?"pointer":"not-allowed", background: evidence?C.green:C.line }}>
           Close exception
         </button>
@@ -1272,7 +1408,7 @@ function Reporting({ model, cal, setCal }) {
             </select>
           </label>
           <div style={{ fontSize:12, color:C.inkDim, paddingBottom:6 }}>
-            {expectedDates(cal).length} expected dates to {CONFIG.asOfDate}
+            {expectedDates(cal, model.period).length} expected dates to {model.period.asOfDate}
           </div>
         </div>
       </Panel>
@@ -1323,7 +1459,7 @@ function Reporting({ model, cal, setCal }) {
           <table>
             <thead><tr>
               <th style={th}>Hospital</th>
-              {expectedDates(cal).map(d => <th key={d} style={{ ...th, textAlign:"center", padding:"7px 4px", fontWeight:400 }}>
+              {expectedDates(cal, model.period).map(d => <th key={d} style={{ ...th, textAlign:"center", padding:"7px 4px", fontWeight:400 }}>
                 <div style={{ fontSize:10.5 }}>{new Date(d+"T00:00:00").getDate()}</div>
                 <div style={{ fontSize:9, color:C.inkFaint }}>{weekday(d).slice(0,1)}</div>
               </th>)}
@@ -1332,7 +1468,7 @@ function Reporting({ model, cal, setCal }) {
               {model.canon.map(h => (
                 <tr key={h.id}>
                   <td style={td}><Mono style={{ fontSize:11.5 }}>{h.id}</Mono></td>
-                  {expectedDates(cal).map(d => {
+                  {expectedDates(cal, model.period).map(d => {
                     const rec = h.records.find(r => r.date === d);
                     const ok = rec && rec.submitted, full = rec && rec.complete;
                     return (
@@ -1361,7 +1497,7 @@ function Revenue({ model }) {
     <>
       <h1 style={{ margin:"0 0 5px", fontSize:21, fontWeight:600 }}>Revenue &amp; finance</h1>
       <p style={{ margin:"0 0 16px", fontSize:13, color:C.inkDim, maxWidth:"80ch", lineHeight:1.6 }}>
-        Revenue is summed from payer components for the submitted days in {CONFIG.period.label}.
+        Revenue is summed from payer components for the submitted days in {model.period.label}.
       </p>
 
       <Panel title="Revenue by payer">
@@ -1397,18 +1533,18 @@ function Revenue({ model }) {
         </div>
       </Panel>
 
-      <Panel title="Collections (cash received)">
-        <Unavailable
-          title="Partially available — not safe to report at network level"
-          reason="Collections is blank for Ultimate, First Health, Mainframe, Neolife Babies and Roding across the whole period. Talent and Hosanna populate it. Aggregating a network collections figure from two of seven hospitals would be misleading, so no network figure is shown."
-          needs={["Confirm whether Collections is expected from all seven hospitals", "Backfill or formally mark as not-applicable per hospital"]} />
+      <Panel title="Revenue — daily history" note="Every hospital, every submitted date this period, every payer-revenue and revenue-total field. Cell markers show the state of the underlying source value.">
+        <DailyHistoryTable model={model} fields={["privRev","hmoRev","nhiaRev","compRev","rTotRev","rARPE","rMTD"]} />
       </Panel>
 
-      <Panel title="Revenue achievement rate">
-        <Unavailable
-          title="Displayed per hospital only — denominator unknown"
-          reason="Every hospital populates a Revenue Achievement Rate, but no revenue target was supplied, so the engine cannot verify how the figure is derived or recompute it. It is carried as a source-reported value and excluded from ranking."
-          needs={["Monthly revenue target per hospital", "Confirmation of the achievement-rate formula"]} />
+      <Panel title="Collections (cash received)"
+             note="Populated inconsistently across hospitals — not aggregated to a network figure, since that would misrepresent hospitals that never populate the field as zero. Shown here exactly as submitted, per hospital and date, so the gaps stay visible rather than being smoothed over.">
+        <DailyHistoryTable model={model} fields={["coll"]} />
+      </Panel>
+
+      <Panel title="Revenue achievement rate"
+             note="No revenue target was supplied, so the engine cannot verify how this figure is derived or recompute it. Carried exactly as each hospital entered it and excluded from network ranking.">
+        <DailyHistoryTable model={model} fields={["revAch"]} />
       </Panel>
 
       <Panel title="HMO revenue cycle">
@@ -1516,10 +1652,13 @@ function Experience({ model, ex }) {
           </table>
         </div>
       </Panel>
-      <Panel title="Average waiting time">
-        <Unavailable title="Excluded from network ranking"
-          reason="Waiting time is recorded inconsistently: some hospitals hold an identical value on every submitted day, which suggests a standing figure rather than a daily measurement. Per the product specification it is not used as a ranking KPI until the underlying capture is reliable."
-          needs={["Confirmation of how waiting time is measured and how often"]} />
+      <Panel title="Patient experience — daily history" note="Every hospital, every submitted date this period, every patient-experience field. Cell markers show the state of the underlying source value.">
+        <DailyHistoryTable model={model} fields={["tat","det","prom","indiff","rNPS","wait"]} />
+      </Panel>
+
+      <Panel title="Average waiting time"
+             note="Excluded from network ranking: some hospitals hold an identical value on every submitted day, which suggests a standing figure rather than a daily measurement, so per the product specification it is not used as a ranking KPI until the underlying capture is confirmed reliable. Shown here exactly as submitted so the pattern stays visible rather than being hidden.">
+        <DailyHistoryTable model={model} fields={["wait"]} />
       </Panel>
     </>
   );
@@ -1537,33 +1676,8 @@ function UnvalidatedDomain({ domain, fields, model, ex }) {
         exactly as submitted, including their original formatting, so that inconsistencies stay visible.
       </p>
 
-      <Panel title="Latest submitted values" note="Read across, not down: these are not comparable between hospitals until units and capture method are confirmed.">
-        <div style={{ overflowX:"auto" }}>
-          <table>
-            <thead><tr>
-              <th style={th}>Hospital</th>
-              {fields.map(f => <th key={f} style={{...th,textAlign:"right"}}>{OPS_LABEL[f]}</th>)}
-              <th style={th}>Last submitted</th>
-            </tr></thead>
-            <tbody>
-              {model.canon.map(h => {
-                const last = h.records.filter(r=>r.submitted).slice(-1)[0];
-                return (
-                  <tr key={h.id}>
-                    <td style={td}>{h.name}</td>
-                    {fields.map(f => {
-                      const v = last?.ops?.[f];
-                      return <td key={f} style={tdR}>
-                        {v === undefined || v === null || v === "" ? <span style={{ color:C.inkFaint, fontSize:11 }}>not submitted</span> : v}
-                      </td>;
-                    })}
-                    <td style={{...td, color:C.inkFaint}}><Mono style={{fontSize:11.5}}>{last?.date || "—"}</Mono></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+      <Panel title="Daily history" note="Every hospital, every submitted date this period, not comparable between hospitals until units and capture method are confirmed. Cell markers show the state of the underlying source value.">
+        <DailyHistoryTable model={model} fields={fields} />
       </Panel>
 
       {rel.length > 0 && (
@@ -1613,7 +1727,7 @@ function FollowUp() {
 
 /* --------------------------------------------------------------- 13. config */
 
-function ConfigModule({ thresholds, setThresholds, cal, setCal }) {
+function ConfigModule({ thresholds, setThresholds, cal, setCal, period }) {
   const [draft, setDraft] = useState({ kpi:"revenue", hospital:"ALL", target:"", amber:"", red:"", critical:"", direction:"LOWER_IS_WORSE" });
   const add = () => {
     if (draft.amber === "" && draft.red === "" && draft.critical === "") return;
@@ -1621,7 +1735,7 @@ function ConfigModule({ thresholds, setThresholds, cal, setCal }) {
       ...draft, id:`T${thresholds.length+1}`,
       target: draft.target===""?null:Number(draft.target), amber: draft.amber===""?null:Number(draft.amber),
       red: draft.red===""?null:Number(draft.red), critical: draft.critical===""?null:Number(draft.critical),
-      effective: CONFIG.asOfDate, owner:"Control Tower Lead",
+      effective: period.asOfDate, owner:"Control Tower Lead",
     }]);
   };
   return (
