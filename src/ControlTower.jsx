@@ -47,8 +47,16 @@ const CONFIG = {
     },
   },
 
-  // Empty by design. V0.1 must not invent thresholds (spec §12).
-  thresholds: [],
+  // CEO-approved revenue thresholds, effective 2026-09-21. Hardcoded here (not entered via
+  // the Rules & Thresholds screen) so they persist across sessions instead of living only in
+  // session state.
+  thresholds: [
+    { id:"T1", kpi:"revenue", hospital:"ULT", target:200000000, amber:180000000, red:150000000, critical:100000000, direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T2", kpi:"revenue", hospital:"FHM", target:10000000,  amber:9000000,   red:7500000,   critical:5000000,   direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T3", kpi:"revenue", hospital:"ROD", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T4", kpi:"revenue", hospital:"TAL", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T5", kpi:"revenue", hospital:"HOS", target:45000000,  amber:40500000,  red:33750000,  critical:22500000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+  ],
 
   // Empty by design. No SLA values were supplied.
   slaRules: [],
