@@ -9,10 +9,21 @@
 import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// The engine builds and compares calendar dates with new Date("YYYY-MM-DDT00:00:00") + toISOString().
+// Under any non-UTC timezone (e.g. Africa/Lagos, UTC+1) that shifts every date back one day, which
+// produced a phantom missing report on 31 Aug, an as-of date one day early, "Day 16" instead of
+// "Day 17", and every hospital showing as not reporting. Pin the process to UTC so results are
+// identical wherever this runs.
+process.env.TZ = "UTC";
+
+// Paths below are relative to this folder, so the script works whether it is launched from the
+// repo root (node dsr-pipeline/run-daily-dsr.mjs) or from inside dsr-pipeline.
+process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 
 const REPO_URL = "https://github.com/ZionOnwodi/CareOne-Control-Tower.git";
 const WORKDIR = "./_repo";
-const LOGO_HEADER_URL = "https://raw.githubusercontent.com/ZionOnwodi/CareOne-Control-Tower/main/public/logo-header.png";
 const LOGO_WATERMARK_URL = "https://raw.githubusercontent.com/ZionOnwodi/CareOne-Control-Tower/main/public/logo-watermark.png";
 
 // 1. Get the current source, read-only.
@@ -34,15 +45,26 @@ fs.writeFileSync(
 
 // 3. Compute + render.
 const { computeDSR } = await import("./dsr-data.mjs?update=" + Date.now());
-const { renderDSREmail } = await import("./render-email.mjs?update=" + Date.now());
+const { renderDSREmail, EMAIL_ASSETS } = await import("./render-email.mjs?update=" + Date.now());
 
 const dsr = computeDSR();
-const html = renderDSREmail(dsr, { logoHeaderUrl: LOGO_HEADER_URL, logoWatermarkUrl: LOGO_WATERMARK_URL });
+const html = renderDSREmail(dsr, { logoWatermarkUrl: LOGO_WATERMARK_URL });
 
 fs.writeFileSync("./dsr-email-output.html", html);
+
+// Browser-viewable preview: same HTML with each cid: image swapped for its local file.
+let preview = html;
+for (const [cid, file] of Object.entries(EMAIL_ASSETS)) preview = preview.split(`cid:${cid}"`).join(`file://${file}"`);
+fs.writeFileSync("./dsr-email-preview.html", preview);
+
+// Details the send step needs (subject, date). send-email.mjs reads this.
+fs.writeFileSync("./dsr-meta.json", JSON.stringify({
+  subject: `CareOne Control Tower — Daily Situation Report — ${dsr.dataThrough}`,
+  dataThrough: dsr.dataThrough,
+}, null, 2));
 console.log("DSR generated for", dsr.asOfDate, "—", dsr.exceptions.length, "exceptions,",
   dsr.reportingStatus.reportingCount + "/" + dsr.reportingStatus.totalCount, "hospitals reporting.");
-console.log("Wrote ./dsr-email-output.html — send this as the email body (Content-Type: text/html).");
+console.log("Wrote ./dsr-email-output.html (+ dsr-email-preview.html for viewing in a browser). Send with: node send-email.mjs");
 
 // If any run should NOT send a bad/partial report, a caller can check this before sending:
 if (dsr.snapshot.attendance === 0 && dsr.snapshot.revenue === 0) {

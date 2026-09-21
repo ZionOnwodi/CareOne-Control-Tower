@@ -1,0 +1,43 @@
+name: Daily Situation Report
+
+# Builds the DSR and emails it over SMTP with the CareOne logo and icons embedded.
+# Run it by hand from the Actions tab first (Run workflow). When you are happy with the result,
+# uncomment the schedule below.
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Mark the subject as TEST"
+        type: boolean
+        default: true
+  # schedule:
+  #   - cron: "0 5 * * *"   # 05:00 UTC = 06:00 Lagos (WAT, UTC+1), every day
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dsr-pipeline/package-lock.json
+      - name: Install
+        working-directory: dsr-pipeline
+        run: npm ci
+      - name: Build the report
+        working-directory: dsr-pipeline
+        run: node run-daily-dsr.mjs        # exits non-zero (and stops here) if the data pull looks broken
+      - name: Send the report
+        working-directory: dsr-pipeline
+        run: node send-email.mjs
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          TEST_MODE: ${{ github.event.inputs.test == 'true' && '1' || '0' }}
