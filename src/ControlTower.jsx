@@ -253,15 +253,20 @@ function getAvailableMonths() {
 // latest date actually present in that month's data (one day past it) — never from the
 // system clock, since this is a point-in-time snapshot with no independent "today".
 function derivePeriod(periodId) {
+  // Dates here are calendar dates, not instants — every construction and read-back must stay
+  // in UTC. Parsing "...T00:00:00" (no Z) builds a LOCAL-time Date, and toISOString() always
+  // reads back in UTC; in any zone ahead of UTC (e.g. Africa/Lagos, UTC+1) that silently shifts
+  // the result back a day. Using Date.UTC()/setUTCDate()/getUTCDate() throughout keeps this
+  // timezone-independent, so the browser's local timezone can never change the answer.
   const [y, m] = periodId.split("-").map(Number);
   const start = `${periodId}-01`;
-  const end = `${periodId}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+  const end = `${periodId}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
   let maxDate = start;
   Object.values(RAW).forEach(rows => rows.forEach(r => { if (r.d.startsWith(periodId) && r.d > maxDate) maxDate = r.d; }));
-  const asOfObj = new Date(maxDate + "T00:00:00");
-  asOfObj.setDate(asOfObj.getDate() + 1);
+  const asOfObj = new Date(maxDate + "T00:00:00Z");
+  asOfObj.setUTCDate(asOfObj.getUTCDate() + 1);
   const asOfDate = asOfObj.toISOString().slice(0, 10);
-  const label = new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
   return { id: periodId, label, start, end, asOfDate };
 }
 
@@ -427,13 +432,16 @@ function computeHospitalKPIs(hosp) {
    =========================================================================== */
 
 function expectedDates(cal, period) {
+  // Same UTC-safe requirement as derivePeriod: local-time parsing + toISOString() read-back
+  // shifts every date back a day in zones ahead of UTC, which both invents a phantom date
+  // before period.start and mis-tags every date in the loop. Stay in UTC end to end.
   const out = [];
-  const start = new Date(period.start + "T00:00:00");
-  const asOf  = new Date(period.asOfDate + "T00:00:00");
-  for (let t = new Date(start); t <= asOf; t.setDate(t.getDate() + 1)) {
+  const start = new Date(period.start + "T00:00:00Z");
+  const asOf  = new Date(period.asOfDate + "T00:00:00Z");
+  for (let t = new Date(start); t <= asOf; t.setUTCDate(t.getUTCDate() + 1)) {
     const iso = t.toISOString().slice(0,10);
     if (iso === period.asOfDate && !cal.countCurrentDayAsDue) continue;
-    if (cal.cadence === "WEEKDAYS" && (t.getDay() === 0 || t.getDay() === 6)) continue;
+    if (cal.cadence === "WEEKDAYS" && (t.getUTCDay() === 0 || t.getUTCDay() === 6)) continue;
     out.push(iso);
   }
   return out;
