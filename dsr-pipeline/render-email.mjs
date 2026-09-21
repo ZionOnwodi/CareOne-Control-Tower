@@ -95,7 +95,6 @@ const STATUS_DOT = { good: GREEN, warn: AMBER, bad: RED, critical: RED_DEEP, neu
 const STATUS_LABEL = { "Target not configured": "No target set" };
 
 export function renderDSREmail(dsr, opts = {}) {
-  const { logoWatermarkUrl = "" } = opts;
   const s = dsr.snapshot, rs = dsr.reportingStatus, tr = s.trend || {};
   const day = dsr.daysElapsed, dim = dsr.daysInMonth;
   const allReporting = rs.notReporting.length === 0;
@@ -198,9 +197,8 @@ export function renderDSREmail(dsr, opts = {}) {
     </tr></table>
   </td></tr>
 
-  <!-- WATERMARK REGION: snapshot + reporting status -->
-  <tr><td background="${logoWatermarkUrl}" bgcolor="${WHITE}" class="pad" style="background-color:${WHITE};background-image:url('${logoWatermarkUrl}');background-repeat:no-repeat;background-position:center 46%;background-size:400px auto;padding:0 21px 6px;">
-    <!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:700px;"><v:fill type="frame" src="${logoWatermarkUrl}" color="#ffffff" /><v:textbox inset="0,0,0,0"><![endif]-->
+  <!-- NETWORK SNAPSHOT + REPORTING STATUS -->
+  <tr><td bgcolor="${WHITE}" class="pad" style="background-color:${WHITE};padding:0 21px 6px;">
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:6px 5px 12px;">${sectionHead("badge-chart", "NETWORK SNAPSHOT")}</td></tr></table>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -235,8 +233,6 @@ export function renderDSREmail(dsr, opts = {}) {
         </td></tr>
       </table>
     </td></tr></table>
-
-    <!--[if gte mso 9]></v:textbox></v:rect><![endif]-->
   </td></tr>
 
   <!-- REVENUE ACHIEVEMENT BY HOSPITAL -->
@@ -264,6 +260,16 @@ export function renderDSREmail(dsr, opts = {}) {
         </table>
       </td></tr>
     </table>
+  </td></tr>
+
+  <!-- CALL TO ACTION -->
+  <tr><td class="pad" bgcolor="${WHITE}" align="center" style="background-color:${WHITE};padding:4px 26px 22px;">
+    <div style="${T(13, 400, DIM, "line-height:19px;padding-bottom:12px;")}">For full network intelligence and real-time performance data, visit the CareOne Enterprise Control Tower</div>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
+      <td bgcolor="${RED}" align="center" style="background-color:${RED};border-radius:8px;">
+        <a href="https://care-one-control-tower-theta.vercel.app/" target="_blank" style="${T(13.5, 700, WHITE, "display:block;padding:12px 30px;text-decoration:none;letter-spacing:0.2px;")}"><font color="${WHITE}">Open the Control Tower &rarr;</font></a>
+      </td>
+    </tr></table>
   </td></tr>
 
   <!-- FOOTER -->
