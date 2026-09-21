@@ -24,7 +24,6 @@ process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 
 const REPO_URL = "https://github.com/ZionOnwodi/CareOne-Control-Tower.git";
 const WORKDIR = "./_repo";
-const LOGO_WATERMARK_URL = "https://raw.githubusercontent.com/ZionOnwodi/CareOne-Control-Tower/main/public/logo-watermark.png";
 
 // 1. Get the current source, read-only.
 if (fs.existsSync(WORKDIR)) execSync(`cd ${WORKDIR} && git pull`, { stdio: "inherit" });
@@ -48,7 +47,7 @@ const { computeDSR } = await import("./dsr-data.mjs?update=" + Date.now());
 const { renderDSREmail, EMAIL_ASSETS } = await import("./render-email.mjs?update=" + Date.now());
 
 const dsr = computeDSR();
-const html = renderDSREmail(dsr, { logoWatermarkUrl: LOGO_WATERMARK_URL });
+const html = renderDSREmail(dsr);
 
 fs.writeFileSync("./dsr-email-output.html", html);
 
