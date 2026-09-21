@@ -34,9 +34,63 @@ export const ACHIEVEMENT_THRESHOLDS = {
    ============================================================================ */
 const PRIORITY_RULES = { reportingGapDaysForHigh: 2 };
 const pctFmt = v => (v * 100).toFixed(0) + "%";
+const moneyFmt = v => Math.abs(v) >= 1e6 ? "₦" + (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : "₦" + Math.round(v).toLocaleString("en-US");
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const dayFmt = iso => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
+function shiftISO(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+// Plain-language descriptions of the data-quality rules, for the executive email.
+const DQ_PLAIN = {
+  R3: "spreadsheet cells showing errors",
+  R4: "payer figures that do not add up to the total",
+  R5: "KPIs that do not match the sheet's own figures",
+  R6: "more patient survey responses than patients seen",
+  R7: "revenue recorded on days with no patients",
+  R8: "payer revenue recorded with no patients for that payer",
+  R9: "the same figure repeated every day (possible copy-paste)",
+  R10: "figures entered in mixed formats (% and plain numbers)",
+};
 
 function priorityForReportingGap(days) {
   return days >= PRIORITY_RULES.reportingGapDaysForHigh ? "HIGH" : "MEDIUM";
+}
+
+
+// ---- Month-on-month trend (the "up 12% vs. last month" line on each KPI card) ----
+// Only produced when data for the immediately preceding calendar month exists. Compares the same
+// number of days (Day 1..N of last month vs Day 1..N of this month) so it is like-for-like.
+function totalsForDays(periodId, maxDay) {
+  const canon = buildCanonical(loadFromSource(periodId));
+  let revenue = 0, attendance = 0, admissions = 0;
+  canon.forEach(h => {
+    const limited = { ...h, records: h.records.filter(r => Number(r.date.slice(8, 10)) <= maxDay) };
+    const t = computeHospitalKPIs(limited).totals;
+    revenue += t.revenue ?? 0; attendance += t.attendance ?? 0; admissions += t.admissions ?? 0;
+  });
+  return { revenue, attendance, admissions, arpe: attendance ? revenue / attendance : null, conversion: attendance ? admissions / attendance : null };
+}
+function previousMonthId(periodId) {
+  const [y, m] = periodId.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+function buildTrend(months, periodId, daysElapsed, current) {
+  const prevId = previousMonthId(periodId);
+  if (!months.includes(prevId)) return null;            // no last-month data yet -> no trend line
+  const prev = totalsForDays(prevId, daysElapsed);
+  const rel = (cur, old) => (old && cur !== null ? (cur - old) / old : null);
+  const mk = (cur, old) => { const r = rel(cur, old); return r === null ? null : { up: r >= 0, text: Math.abs(r * 100).toFixed(0) + "%" }; };
+  const conv = current.conversion !== null && prev.conversion !== null ? current.conversion - prev.conversion : null;
+  return {
+    revenue: mk(current.revenue, prev.revenue),
+    attendance: mk(current.attendance, prev.attendance),
+    admissions: mk(current.admissions, prev.admissions),
+    arpe: mk(current.arpe, prev.arpe),
+    conversion: conv === null ? null : { up: conv >= 0, text: Math.abs(conv * 100).toFixed(1) + " pts" },
+    achievement: null,   // last month's targets are not stored, so there is nothing comparable
+  };
 }
 
 /* ============================================================================
@@ -54,12 +108,14 @@ export function computeDSR() {
   const openEx = exceptions.filter(e => e.status !== "CLOSED");
 
   // ---- Pacing basis ----
-  // "Days elapsed" is derived from period.asOfDate (latest confirmed data + 1 day), never the
-  // system clock — consistent with the rest of this engine's rule of only trusting data it has
-  // actually seen. A hospital exactly on schedule shows 100% against its OWN target-to-date.
+  // period.asOfDate is (latest confirmed data date + 1 day), never the system clock. The last day
+  // of real data is therefore asOfDate - 1, and that is the number of days of the month that have
+  // been reported (data for 1-17 Sep => Day 17 of 30). Date maths is done in UTC on the ISO string
+  // so the result cannot shift with the machine's timezone.
   const [py, pm] = period.id.split("-").map(Number);
-  const daysInMonth = new Date(py, pm, 0).getDate();
-  const daysElapsed = Math.max(1, Math.min(daysInMonth, new Date(period.asOfDate + "T00:00:00").getDate() - 1));
+  const daysInMonth = new Date(Date.UTC(py, pm, 0)).getUTCDate();
+  const dataThrough = shiftISO(period.asOfDate, -1);
+  const daysElapsed = Math.max(1, Math.min(daysInMonth, Number(dataThrough.slice(8, 10))));
   const paceFraction = daysElapsed / daysInMonth;
 
   // ---- Network Snapshot ----
@@ -90,6 +146,7 @@ export function computeDSR() {
     const mtd = kpis[h.id].totals.revenue ?? 0;
     const target = REVENUE_TARGETS_NGN[h.id];
     const targetToDate = target ? target * paceFraction : null;
+    const dailyTarget = target ? target / daysInMonth : null;
     const pct = targetToDate ? mtd / targetToDate : null;
     let status;
     if (target === null || target === undefined) status = { label: "Target not configured", tone: "neutral" };
@@ -97,48 +154,68 @@ export function computeDSR() {
     else if (pct >= ACHIEVEMENT_THRESHOLDS.amber) status = { label: "At Risk", tone: "warn" };
     else if (pct >= ACHIEVEMENT_THRESHOLDS.red) status = { label: "Below Target", tone: "bad" };
     else status = { label: "Critical", tone: "critical" };
-    return { id: h.id, name: h.name, mtd, target, targetToDate, pct, status, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
+    return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
   });
 
-  // ---- Exceptions Requiring Attention (DSR view — simplified from the full register) ----
+  // ---- Exceptions Requiring Attention (DSR view — plain language, simplified from the full register) ----
   const dsrExceptions = [];
+
+  // 1. Missing reports
   canon.forEach(h => {
     const rep = reporting[h.id];
-    if (rep.missing.length > 0) {
-      const days = rep.missing.length;
-      dsrExceptions.push({
-        hospital: h.name,
-        issue: days === rep.due.length
-          ? `Not reporting — no data submitted all period`
-          : `Not reporting — ${days} day${days > 1 ? "s" : ""} missing (last: ${rep.lastSubmitted || "none"})`,
-        priority: priorityForReportingGap(days),
-      });
-    }
+    if (rep.missing.length === 0) return;
+    const n = rep.missing.length;
+    dsrExceptions.push({
+      hospital: h.name,
+      issue: n === rep.due.length
+        ? "No reports received this month."
+        : n === 1
+          ? `No report received for ${dayFmt(rep.missing[0])}.`
+          : `${n} daily reports missing (last report received ${rep.lastSubmitted ? dayFmt(rep.lastSubmitted) : "never"}).`,
+      priority: priorityForReportingGap(n),
+    });
   });
-  // Revenue-shortfall exceptions — real thresholds now active.
+
+  // 2. Revenue behind pace
   hospitalAchievement.forEach(h => {
-    if (h.target && h.pct !== null && h.hasData) {
-      if (h.pct < ACHIEVEMENT_THRESHOLDS.red) {
-        dsrExceptions.push({ hospital: h.name, issue: `Revenue CRITICAL — ${pctFmt(h.pct)} of target-to-date`, priority: "HIGH" });
-      } else if (h.pct < ACHIEVEMENT_THRESHOLDS.amber) {
-        dsrExceptions.push({ hospital: h.name, issue: `Revenue RED — ${pctFmt(h.pct)} of target-to-date`, priority: "HIGH" });
-      } else if (h.pct < ACHIEVEMENT_THRESHOLDS.green) {
-        dsrExceptions.push({ hospital: h.name, issue: `Revenue AMBER — ${pctFmt(h.pct)} of target-to-date`, priority: "MEDIUM" });
-      }
-    }
+    if (!(h.target && h.pct !== null && h.hasData)) return;
+    let word = null, priority = null;
+    if (h.pct < ACHIEVEMENT_THRESHOLDS.red) { word = "far behind"; priority = "HIGH"; }
+    else if (h.pct < ACHIEVEMENT_THRESHOLDS.amber) { word = "behind"; priority = "HIGH"; }
+    else if (h.pct < ACHIEVEMENT_THRESHOLDS.green) { word = "slightly behind"; priority = "MEDIUM"; }
+    if (!word) return;
+    dsrExceptions.push({
+      hospital: h.name,
+      issue: `Revenue ${word} target: ${moneyFmt(h.mtd)} earned vs ${moneyFmt(h.targetToDate)} expected by day ${daysElapsed} (${pctFmt(h.pct)}).`,
+      priority,
+    });
   });
-  // Surface a few of the highest-value data-quality exceptions too (not the full 30+ register —
-  // this is an executive view; the full register lives in the dashboard's Exceptions tab).
-  openEx.filter(e => e.category === CATEGORY.DQ).slice(0, 3).forEach(e => {
-    const hospName = canon.find(h => h.id === e.hospital)?.name || e.hospital;
-    dsrExceptions.push({ hospital: hospName, issue: e.issue, priority: "LOW" });
+
+  // 3. Data entries to double-check — ONE line per hospital (the full list lives in the dashboard).
+  const dqByHospital = new Map();
+  openEx.filter(e => e.category === CATEGORY.DQ).forEach(e => {
+    const rec = dqByHospital.get(e.hospital) || { total: 0, byRule: {} };
+    rec.total++; rec.byRule[e.rule] = (rec.byRule[e.rule] || 0) + 1;
+    dqByHospital.set(e.hospital, rec);
   });
+  dqByHospital.forEach((rec, id) => {
+    const name = canon.find(h => h.id === id)?.name || id;
+    const top = Object.entries(rec.byRule).sort((a, b) => b[1] - a[1])[0][0];
+    const what = DQ_PLAIN[top] || "unusual figures";
+    dsrExceptions.push({
+      hospital: name,
+      issue: `${rec.total} data ${rec.total === 1 ? "entry needs" : "entries need"} checking, mainly ${what}.`,
+      priority: "LOW",
+    });
+  });
+
   const priorityRank = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   dsrExceptions.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);
 
   return {
-    asOfDate: period.asOfDate, period, daysElapsed, daysInMonth,
-    snapshot: { revenue, attendance, admissions, arpe, conversion, networkAchievement, targetsKnown, totalHospitals: canon.length },
+    asOfDate: period.asOfDate, dataThrough, period, daysElapsed, daysInMonth,
+    snapshot: { revenue, attendance, admissions, arpe, conversion, networkAchievement, targetsKnown, totalHospitals: canon.length,
+      trend: buildTrend(months, periodId, daysElapsed, { revenue, attendance, admissions, arpe, conversion }) },
     reportingStatus: { reportingCount: reportingNow.length, totalCount: canon.length, notReporting: notReporting.map(h => h.name) },
     hospitalAchievement,
     exceptions: dsrExceptions,
