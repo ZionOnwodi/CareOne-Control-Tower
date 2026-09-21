@@ -53,9 +53,12 @@ const CONFIG = {
   thresholds: [
     { id:"T1", kpi:"revenue", hospital:"ULT", target:200000000, amber:180000000, red:150000000, critical:100000000, direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
     { id:"T2", kpi:"revenue", hospital:"FHM", target:10000000,  amber:9000000,   red:7500000,   critical:5000000,   direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
-    { id:"T3", kpi:"revenue", hospital:"ROD", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T3", kpi:"revenue", hospital:"ROD", target:20000000,  amber:18000000,  red:15000000,  critical:10000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
     { id:"T4", kpi:"revenue", hospital:"TAL", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
     { id:"T5", kpi:"revenue", hospital:"HOS", target:45000000,  amber:40500000,  red:33750000,  critical:22500000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T6", kpi:"revenue", hospital:"NLB", target:150000000, amber:135000000, red:112500000, critical:75000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T7", kpi:"revenue", hospital:"GRV", target:300000000, amber:270000000, red:225000000, critical:150000000, direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T8", kpi:"revenue", hospital:"MTP", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
   ],
 
   // Empty by design. No SLA values were supplied.
