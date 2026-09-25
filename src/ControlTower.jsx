@@ -37,6 +37,9 @@ const CONFIG = {
     { id: "HOS", name: "Hosanna",        sheetId: "11VunObagnwAkf8snGm5Ie16QQVhcFNjhcOEd73ytll4" },
     { id: "GRV", name: "Grovers",        sheetId: "1W27hMPKY-P50aYTU8v7dsQQa3wf-PNOzT0sLUYd6yzc" },
     { id: "MTP", name: "Mt. Pisgah",     sheetId: "1PatPT5uhvmfcTM-e53RVXaYfBQyomIxmLKzV7g3ZWq4" },
+    { id: "OLK", name: "Outreach Lekki", sheetId: "1YfyIJgYyIo-PxK_UUQyA1Slo9MR7d83U7SZxJNU_uPc" },
+    { id: "OFE", name: "Outreach Festac", sheetId: "1YhoVFzWJ3J_ELQbnqDeiZnjwIl698894vFN-UD2TGO8" },
+    { id: "OOK", name: "Outreach Okota", sheetId: "1cM8VTiQIvgAuof-xLx9DriYBMHVfCENLqvpEL7-UcFo" },
   ],
 
   // Only N/A the specification explicitly authorises (spec §9, prompt §5).
@@ -100,7 +103,7 @@ const SOURCE_META = {
   type: "GOOGLE_SHEETS",
   status: "SNAPSHOT",
   readAt: "2026-09-25T10:54:00+01:00",
-  note: "Read directly from the nine live hospital sheets via the connected Drive account. Values are a point-in-time snapshot, not a live feed.",
+  note: "Read directly from the twelve live hospital sheets via the connected Drive account. Values are a point-in-time snapshot, not a live feed.",
 };
 
 // Raw rows exactly as submitted: all 44 standardised columns on every row. `null` = blank cell
@@ -302,6 +305,9 @@ const RAW = {
     { d:"2026-09-23", att:20, nreg:2, priv:4, hmo:16, lash:0, nhia:0, comp:0, adm:6, rConv:0.3, onadm:0.09, disch:0, yld:15, rPctY:0.75, tat:93.21, det:0, prom:15, indiff:0, rNPS:1, privRev:199500, hmoRev:324083.83, nhiaRev:0, compRev:0, rTotRev:523583.83, rARPE:26179.19, rMTD:null, ops:{mort:"0", ipc:"90", medErr:"0", esc:"0", wait:"93.21", coll:"0", revAch:"8.08%", refund:"0", bed:null, crit:"0", pwr:"1", amb:"0", staff:"3.33", vac:"1", wfs:"90%", emr:null, out:"1", rep:"90"} },
     { d:"2026-09-24", att:12, nreg:0, priv:2, hmo:10, lash:0, nhia:0, comp:0, adm:3, rConv:0.25, onadm:0.06, disch:6, yld:7, rPctY:0.5833, tat:57.29, det:0.01, prom:6, indiff:0, rNPS:0.9967, privRev:316000, hmoRev:368909.5, nhiaRev:0, compRev:0, rTotRev:684909.5, rARPE:57075.79, rMTD:null, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"9.60%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
   ],
+  OLK: [],   // Sep-2026+ tab has no data reported yet; intentionally no rows
+  OFE: [],   // Sep-2026+ tab has no data reported yet; intentionally no rows
+  OOK: [],   // Sep-2026+ tab has no data reported yet; intentionally no rows
 };
 
 // Reporting periods are never hardcoded: every distinct YYYY-MM prefix found across every
@@ -1629,7 +1635,7 @@ function Revenue({ model }) {
       <Panel title="HMO revenue cycle">
         <Unavailable
           title="Integration pending"
-          reason="The hospital sheets carry HMO attendance and HMO revenue only. Claims submitted, claims rejected, outstanding receivables, aging, DSO and recovery rate do not exist in any of the nine sources."
+          reason="The hospital sheets carry HMO attendance and HMO revenue only. Claims submitted, claims rejected, outstanding receivables, aging, DSO and recovery rate do not exist in any of the twelve sources."
           needs={["A claims/receivables source", "Payer-level claim status feed"]} />
       </Panel>
     </>
@@ -1789,7 +1795,7 @@ function FollowUp() {
       </p>
       <Panel accent={C.info}>
         <Unavailable title="Integration pending — no source connected"
-          reason="None of the nine hospital sheets contains Follow-Up fields. No Follow-Up figures are shown, estimated or inferred. The data model and exception engine already accept a Follow-Up domain, so connecting a source will not require the application to be rebuilt."
+          reason="None of the twelve hospital sheets contains Follow-Up fields. No Follow-Up figures are shown, estimated or inferred. The data model and exception engine already accept a Follow-Up domain, so connecting a source will not require the application to be rebuilt."
           needs={["A Follow-Up register per hospital, or the equivalent Network EMR feed", "Definition of eligibility and the due window", "Definition of high-risk overdue"]} />
         <div style={{ marginTop:18 }}>
           <div style={{ fontSize:12, color:C.inkDim, marginBottom:9 }}>Stages the module is built to track once a source exists</div>

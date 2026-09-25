@@ -11,6 +11,7 @@ import { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonica
    ============================================================================ */
 export const REVENUE_TARGETS_NGN = {
   ULT: 200000000, FHM: 10000000, MFM: null, NLB: 150000000, ROD: 20000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
+  OLK: null, OFE: null, OOK: null,
 };
 
 /* ============================================================================
