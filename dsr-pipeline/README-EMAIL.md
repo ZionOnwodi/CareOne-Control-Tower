@@ -20,6 +20,7 @@ Only the **sending** account's. The person receiving the report (e.g. the CEO) i
 | `SMTP_PASS` | the 16-character app password |
 | `MAIL_FROM` | `CareOne Control Tower <your Gmail address>` |
 | `MAIL_TO` | the recipient(s), comma-separated (start with just yourself) |
+| `MAIL_TO_TEST` | where TEST runs go (e.g. just yourself). Test runs send **only** here and never to `MAIL_TO`; if it is missing, a test run stops with an error |
 
 ## Option 2 — send from a careoneng.com mailbox you own
 Same six secrets, using the mail server from your web host's email settings for `SMTP_HOST` / `SMTP_PORT`
