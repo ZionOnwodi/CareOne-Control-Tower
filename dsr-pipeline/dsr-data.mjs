@@ -34,16 +34,16 @@ export const ACHIEVEMENT_THRESHOLDS = {
    once REVENUE_TARGETS_NGN is populated; they produce nothing until then.
    ============================================================================ */
 const PRIORITY_RULES = { reportingGapDaysForHigh: 2 };
-const pctFmt = v => (v * 100).toFixed(0) + "%";
-const moneyFmt = v => Math.abs(v) >= 1e6 ? "₦" + (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : "₦" + Math.round(v).toLocaleString("en-US");
-const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const dayFmt = iso => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
-function shiftISO(iso, days) {
+export const pctFmt = v => (v * 100).toFixed(0) + "%";
+export const moneyFmt = v => Math.abs(v) >= 1e6 ? "₦" + (v / 1e6).toFixed(1).replace(/\.0$/, "") + "M" : "₦" + Math.round(v).toLocaleString("en-US");
+export const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+export const dayFmt = iso => `${Number(iso.slice(8, 10))} ${MON[Number(iso.slice(5, 7)) - 1]}`;
+export function shiftISO(iso, days) {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 // Plain-language descriptions of the data-quality rules, for the executive email.
-const DQ_PLAIN = {
+export const DQ_PLAIN = {
   R3: "spreadsheet cells showing errors",
   R4: "payer figures that do not add up to the total",
   R5: "KPIs that do not match the sheet's own figures",
@@ -54,8 +54,17 @@ const DQ_PLAIN = {
   R10: "figures entered in mixed formats (% and plain numbers)",
 };
 
-function priorityForReportingGap(days) {
+export function priorityForReportingGap(days) {
   return days >= PRIORITY_RULES.reportingGapDaysForHigh ? "HIGH" : "MEDIUM";
+}
+
+// Achievement status tier for a hospital. Shared by the DSR and the WSR so both use the same labels.
+export function achievementStatus(target, pct) {
+  if (target === null || target === undefined) return { label: "Target not configured", tone: "neutral" };
+  if (pct >= ACHIEVEMENT_THRESHOLDS.green) return { label: "On Track", tone: "good" };
+  if (pct >= ACHIEVEMENT_THRESHOLDS.amber) return { label: "At Risk", tone: "warn" };
+  if (pct >= ACHIEVEMENT_THRESHOLDS.red) return { label: "Below Target", tone: "bad" };
+  return { label: "Critical", tone: "critical" };
 }
 
 
@@ -149,12 +158,7 @@ export function computeDSR() {
     const targetToDate = target ? target * paceFraction : null;
     const dailyTarget = target ? target / daysInMonth : null;
     const pct = targetToDate ? mtd / targetToDate : null;
-    let status;
-    if (target === null || target === undefined) status = { label: "Target not configured", tone: "neutral" };
-    else if (pct >= ACHIEVEMENT_THRESHOLDS.green) status = { label: "On Track", tone: "good" };
-    else if (pct >= ACHIEVEMENT_THRESHOLDS.amber) status = { label: "At Risk", tone: "warn" };
-    else if (pct >= ACHIEVEMENT_THRESHOLDS.red) status = { label: "Below Target", tone: "bad" };
-    else status = { label: "Critical", tone: "critical" };
+    const status = achievementStatus(target, pct);
     return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
   });
 

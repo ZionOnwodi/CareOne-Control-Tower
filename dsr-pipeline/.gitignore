@@ -3,5 +3,6 @@ _repo/
 engine.mjs
 dsr-email-output.html
 dsr-email-preview.html
+wsr-email-preview.html
 dsr-meta.json
 *.eml

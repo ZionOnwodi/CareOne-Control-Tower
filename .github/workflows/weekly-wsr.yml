@@ -1,0 +1,50 @@
+name: Weekly Situation Report
+
+# Builds the WSR for one Monday–Sunday week and emails it over SMTP with the CareOne logo and icons
+# embedded. Run it by hand from the Actions tab first (Run workflow). When you are happy with the
+# result, uncomment the schedule below.
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Mark the subject as TEST"
+        type: boolean
+        default: true
+      week_start:
+        description: "Monday the week starts on (YYYY-MM-DD). Blank = the most recent completed week."
+        type: string
+        required: false
+        default: ""
+  # schedule:
+  #   - cron: "0 11 * * 1"   # 11:00 UTC = 12:00 Lagos (WAT, UTC+1), every Monday
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dsr-pipeline/package-lock.json
+      - name: Install
+        working-directory: dsr-pipeline
+        run: npm ci
+      - name: Build the report
+        working-directory: dsr-pipeline
+        run: node run-weekly-wsr.mjs       # exits non-zero (and stops here) on a bad week_start or an empty week
+        env:
+          WEEK_START: ${{ github.event.inputs.week_start }}
+      - name: Send the report
+        working-directory: dsr-pipeline
+        run: node send-email.mjs
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO_WEEKLY }}
+          TEST_MODE: ${{ github.event.inputs.test == 'true' && '1' || '0' }}
