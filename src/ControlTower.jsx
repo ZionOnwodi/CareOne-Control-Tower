@@ -50,7 +50,8 @@ const CONFIG = {
     },
   },
 
-  // CEO-approved revenue thresholds, effective 2026-09-21. Hardcoded here (not entered via
+  // CEO-approved revenue thresholds, effective 2026-09-21; Outreach Lekki, Festac and Okota
+  // (T9-T11) added 2026-09-28. Hardcoded here (not entered via
   // the Rules & Thresholds screen) so they persist across sessions instead of living only in
   // session state.
   thresholds: [
@@ -62,6 +63,9 @@ const CONFIG = {
     { id:"T6", kpi:"revenue", hospital:"NLB", target:150000000, amber:135000000, red:112500000, critical:75000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
     { id:"T7", kpi:"revenue", hospital:"GRV", target:300000000, amber:270000000, red:225000000, critical:150000000, direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
     { id:"T8", kpi:"revenue", hospital:"MTP", target:40000000,  amber:36000000,  red:30000000,  critical:20000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-21", owner:"CEO" },
+    { id:"T9",  kpi:"revenue", hospital:"OLK", target:75000000,  amber:67500000,  red:56250000,  critical:37500000,  direction:"LOWER_IS_WORSE", effective:"2026-09-28", owner:"CEO" },
+    { id:"T10", kpi:"revenue", hospital:"OFE", target:70000000,  amber:63000000,  red:52500000,  critical:35000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-28", owner:"CEO" },
+    { id:"T11", kpi:"revenue", hospital:"OOK", target:50000000,  amber:45000000,  red:37500000,  critical:25000000,  direction:"LOWER_IS_WORSE", effective:"2026-09-28", owner:"CEO" },
   ],
 
   // Empty by design. No SLA values were supplied.
@@ -768,8 +772,8 @@ function formatFieldValue(key, value) {
 
 /* ===========================================================================
    SECTION 7 — RAG EVALUATOR  (spec §12)
-   No thresholds were supplied, so nothing is rated by default. The evaluator
-   returns UNRATED rather than defaulting to GREEN — a hospital must never look
+   Rates against CONFIG.thresholds. A KPI with no threshold, or no value, is not
+   rated: the evaluator returns UNRATED rather than defaulting to GREEN — a hospital must never look
    healthy just because nobody has configured a rule yet.
    =========================================================================== */
 
@@ -1131,7 +1135,7 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
       </section>
 
       <Panel title="Hospital comparison"
-             note="RAG is blank by design: no thresholds have been configured yet, and a hospital must not appear healthy merely because no rule exists. Configure thresholds under Rules & thresholds to activate rating.">
+             note="Status rates month-to-date revenue against the thresholds under Rules & thresholds. It stays blank for a hospital with no threshold or no data yet, so a hospital never appears healthy merely because nothing was rated.">
         <div style={{ overflowX:"auto" }}>
           <table>
             <thead><tr>
