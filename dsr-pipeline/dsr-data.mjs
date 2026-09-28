@@ -3,15 +3,16 @@ import { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonica
 /* ============================================================================
    CONFIG LAYER — Revenue targets
    ----------------------------------------------------------------------------
-   No monthly revenue targets have been supplied yet. Every value is explicitly
-   null rather than guessed — per instruction, achievement/status must show as
-   "not configured" until real targets are provided, never a fabricated number.
-   This is the ONLY place target values need to be entered; nothing else in
-   this file, or the email template, needs to change when they arrive.
+   CEO-approved monthly targets (effective 2026-09-21; Outreach Lekki, Festac
+   and Okota added 2026-09-28). A hospital without an approved target stays
+   explicitly null (currently Mainframe) rather than guessed, so it shows as
+   "not configured", never a fabricated number. Shared by the DSR and the WSR:
+   this is the ONLY place target values need to be entered; nothing else in
+   this file, wsr-data.mjs or the email template needs to change.
    ============================================================================ */
 export const REVENUE_TARGETS_NGN = {
   ULT: 200000000, FHM: 10000000, MFM: null, NLB: 150000000, ROD: 20000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
-  OLK: null, OFE: null, OOK: null,
+  OLK: 75000000, OFE: 70000000, OOK: 50000000,
 };
 
 /* ============================================================================
@@ -30,8 +31,8 @@ export const ACHIEVEMENT_THRESHOLDS = {
    ----------------------------------------------------------------------------
    PROVISIONAL DEFAULTS — not yet approved. Maps the dashboard's existing,
    already-verified exception categories/severity onto HIGH/MEDIUM/LOW for the
-   DSR's simpler executive view. Revenue-shortfall rules activate automatically
-   once REVENUE_TARGETS_NGN is populated; they produce nothing until then.
+   DSR's simpler executive view. Revenue-shortfall rules apply to every hospital
+   with a target in REVENUE_TARGETS_NGN and produce nothing for one without.
    ============================================================================ */
 const PRIORITY_RULES = { reportingGapDaysForHigh: 2 };
 export const pctFmt = v => (v * 100).toFixed(0) + "%";
