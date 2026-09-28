@@ -37,7 +37,7 @@ for (const [cid, file] of Object.entries(EMAIL_ASSETS)) {
 let subject = process.env.MAIL_SUBJECT || meta.subject;
 if (process.env.TEST_MODE === "1" && !process.env.MAIL_SUBJECT) subject += " — TEST";
 
-const text = `CareOne Enterprise Control Tower — Daily Situation Report (${meta.dataThrough}).\nThis report is best viewed in an HTML-capable email client.`;
+const text = `CareOne Enterprise Control Tower — ${meta.reportName || "Daily Situation Report"} (${meta.dataThrough}).\nThis report is best viewed in an HTML-capable email client.`;
 
 const emlIdx = process.argv.indexOf("--eml");
 if (emlIdx !== -1) {

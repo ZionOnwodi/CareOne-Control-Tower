@@ -33,3 +33,13 @@ then switch `MAIL_TO` to the CEO and uncomment the `schedule:` lines in `.github
 ## Try it locally without sending anything
     cd dsr-pipeline && npm install && node run-daily-dsr.mjs && node send-email.mjs --eml out.eml
 Double-click `out.eml` to open the finished email in Outlook / Apple Mail / Thunderbird.
+
+## Weekly Situation Report
+`run-weekly-wsr.mjs` builds the WSR for one Monday–Sunday week; the same `send-email.mjs` sends it.
+With no week given it reports the most recent completed week (Lagos calendar); to pick one:
+
+    node run-weekly-wsr.mjs --week-start 2026-09-21      # must be a Monday
+
+Add one more secret, `MAIL_TO_WEEKLY` (the weekly recipients, comma-separated). Then GitHub -> Actions ->
+**Weekly Situation Report** -> Run workflow. The schedule in `.github/workflows/weekly-wsr.yml` is
+commented out; uncomment it to send every Monday at 11:00 UTC (12:00 Lagos).

@@ -1,4 +1,5 @@
 // Renders the Daily Situation Report as an HTML email that follows the approved design template.
+// The same template renders the Weekly Situation Report with { mode: "weekly" }; the default is "daily".
 //
 // IMAGES: every image (logo, icons) is referenced as  cid:<name>  and shipped INSIDE the message as
 // an inline attachment (see send-email.mjs / EMAIL_ASSETS below). This is what makes them show in
@@ -45,6 +46,13 @@ function longDate(iso) {
   const wd = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${wd}, ${d} ${MONTHS[m - 1]} ${y}`;
 }
+// "Mon 21 – Sun 27 September 2026" (the month/year are only repeated when the week crosses them).
+function rangeDate(startIso, endIso) {
+  const [ys, ms, ds] = startIso.split("-").map(Number), [ye, me, de] = endIso.split("-").map(Number);
+  const wd = (y, m, d) => WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()].slice(0, 3);
+  const left = ys !== ye ? `${ds} ${MONTHS[ms - 1]} ${ys}` : ms !== me ? `${ds} ${MONTHS[ms - 1]}` : `${ds}`;
+  return `${wd(ys, ms, ds)} ${left} – ${wd(ye, me, de)} ${de} ${MONTHS[me - 1]} ${ye}`;
+}
 
 const img = (name, w, h, alt = "") =>
   `<img src="cid:${name}" width="${w}" height="${h}" alt="${esc(alt)}" style="display:block;border:0;outline:none;width:${w}px;height:${h}px;">`;
@@ -66,9 +74,9 @@ function sectionHead(badge, title, color = NAVY) {
 </td></tr></table>`;
 }
 
-function kpiCard({ icon, label, value, trend }) {
+function kpiCard({ icon, label, value, trend }, trendLabel = "vs. last month") {
   const trendHtml = trend
-    ? `<div style="${T(12, 700, trend.up ? GREEN : RED, "line-height:16px;padding-top:3px;")}">${trend.up ? "&uarr;" : "&darr;"} ${esc(trend.text)} <span style="${T(12, 400, DIM)}">vs. last month</span></div>`
+    ? `<div style="${T(12, 700, trend.up ? GREEN : RED, "line-height:16px;padding-top:3px;")}">${trend.up ? "&uarr;" : "&darr;"} ${esc(trend.text)} <span style="${T(12, 400, DIM)}">${trendLabel}</span></div>`
     : "";
   return `
   <td class="kpi" width="33.33%" valign="top" style="padding:0 5px 10px;">
@@ -94,25 +102,38 @@ const cell = (extra = "") => `padding:11px 10px;border-bottom:1px solid ${LINE};
 const STATUS_DOT = { good: GREEN, warn: AMBER, bad: RED, critical: RED_DEEP, neutral: GRAY_DOT };
 const STATUS_LABEL = { "Target not configured": "No target set" };
 
-export function renderDSREmail(dsr, opts = {}) {
+export function renderDSREmail(dsr, { mode = "daily" } = {}) {
+  const weekly = mode === "weekly";
   const s = dsr.snapshot, rs = dsr.reportingStatus, tr = s.trend || {};
   const day = dsr.daysElapsed, dim = dsr.daysInMonth;
   const allReporting = rs.notReporting.length === 0;
+  const reportName = weekly ? "Weekly Situation Report" : "Daily Situation Report";
+  const trendLabel = weekly ? "vs. last week" : "vs. last month";
 
-  const preheader = `Network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reporting · ${dsr.exceptions.length} items need attention.`;
+  const preheader = weekly
+    ? `Week of ${dsr.rangeLabel}: network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reported all 7 days · ${dsr.exceptions.length} items need attention.`
+    : `Network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reporting · ${dsr.exceptions.length} items need attention.`;
 
   const cards = [
-    kpiCard({ icon: "kpi-revenue", label: "Total Revenue", value: money(s.revenue), trend: tr.revenue }),
-    kpiCard({ icon: "kpi-attendance", label: "Attendance", value: num(s.attendance), trend: tr.attendance }),
-    kpiCard({ icon: "kpi-admissions", label: "Admissions", value: num(s.admissions), trend: tr.admissions }),
-    kpiCard({ icon: "kpi-arpe", label: "ARPE", value: money(s.arpe), trend: tr.arpe }),
-    kpiCard({ icon: "kpi-conversion", label: "Admission Conversion", value: pct1(s.conversion), trend: tr.conversion }),
-    kpiCard({ icon: "kpi-achievement", label: "Revenue Achievement", value: s.targetsKnown === 0 ? "Not set" : pct0(s.networkAchievement), trend: tr.achievement }),
+    kpiCard({ icon: "kpi-revenue", label: "Total Revenue", value: money(s.revenue), trend: tr.revenue }, trendLabel),
+    kpiCard({ icon: "kpi-attendance", label: "Attendance", value: num(s.attendance), trend: tr.attendance }, trendLabel),
+    kpiCard({ icon: "kpi-admissions", label: "Admissions", value: num(s.admissions), trend: tr.admissions }, trendLabel),
+    kpiCard({ icon: "kpi-arpe", label: "ARPE", value: money(s.arpe), trend: tr.arpe }, trendLabel),
+    kpiCard({ icon: "kpi-conversion", label: "Admission Conversion", value: pct1(s.conversion), trend: tr.conversion }, trendLabel),
+    kpiCard({ icon: "kpi-achievement", label: "Revenue Achievement", value: s.targetsKnown === 0 ? "Not set" : pct0(s.networkAchievement), trend: tr.achievement }, trendLabel),
   ];
 
   const achievementRows = dsr.hospitalAchievement.map(h => {
     const dot = STATUS_DOT[h.status.tone] || GRAY_DOT;
     const label = STATUS_LABEL[h.status.label] || h.status.label;
+    if (weekly) return `
+    <tr>
+      <td style="${cell(T(13, 400, INK))}">${esc(h.name)}</td>
+      <td align="right" style="${cell(T(13, 400, INK))}">${num(h.weekRevenue)}</td>
+      <td align="right" style="${cell(T(13, 400, INK))}">${h.weeklyTarget ? num(h.weeklyTarget) : "—"}</td>
+      <td align="right" style="${cell(T(13, 400, INK))}">${h.pct !== null ? pct0(h.pct) : "—"}</td>
+      <td style="${cell(T(13, 400, INK, "white-space:nowrap;"))}"><span style="color:${dot};font-size:15px;line-height:13px;">&#9679;</span>&nbsp; ${esc(label)}</td>
+    </tr>`;
     return `
     <tr>
       <td style="${cell(T(13, 400, INK))}">${esc(h.name)}</td>
@@ -130,7 +151,7 @@ export function renderDSREmail(dsr, opts = {}) {
       <td valign="middle" bgcolor="${WHITE}" style="${cell(T(13, 400, INK, "line-height:18px;") + `background-color:${WHITE};`)}">${esc(e.issue)}</td>
       <td valign="middle" width="84" bgcolor="${WHITE}" style="${cell(`background-color:${WHITE};`)}">${priorityPill(e.priority)}</td>
     </tr>`).join("")
-    : `<tr><td colspan="3" align="center" style="padding:16px 12px;${T(13, 400, DIM)}">No items need attention today.</td></tr>`;
+    : `<tr><td colspan="3" align="center" style="padding:16px 12px;${T(13, 400, DIM)}">${weekly ? "No items need attention this week." : "No items need attention today."}</td></tr>`;
 
   const notReporting = allReporting
     ? `<span style="${T(13, 400, INK)}">None &mdash; every hospital has reported.</span>`
@@ -147,7 +168,7 @@ export function renderDSREmail(dsr, opts = {}) {
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
-<title>CareOne Enterprise Control Tower — Daily Situation Report</title>
+<title>CareOne Enterprise Control Tower — ${reportName}</title>
 <!--[if mso]>
 <style type="text/css">table {border-collapse:collapse;} body,table,td,a {font-family:Arial,Helvetica,sans-serif !important;}</style>
 <![endif]-->
@@ -176,11 +197,11 @@ export function renderDSREmail(dsr, opts = {}) {
       <td width="2" bgcolor="${RED}" style="background-color:${RED};width:2px;font-size:1px;line-height:1px;">&nbsp;</td>
       <td valign="middle" style="padding-left:18px;">
         <div style="${T(22, 700, NAVY, "letter-spacing:0.3px;line-height:26px;")}">CONTROL TOWER</div>
-        <div style="${T(24, 700, RED, "letter-spacing:0.2px;line-height:28px;")}">DAILY SITUATION REPORT</div>
+        <div style="${T(24, 700, RED, "letter-spacing:0.2px;line-height:28px;")}">${reportName.toUpperCase()}</div>
         <div style="${T(14, 400, NAVY, "line-height:20px;padding-top:3px;")}">Network Performance &amp; Exception Management</div>
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr>
           <td valign="middle" width="24">${img("cal", 16, 16, "")}</td>
-          <td valign="middle" style="${T(13.5, 400, NAVY)}">${longDate(dsr.dataThrough)}</td>
+          <td valign="middle" style="${T(13.5, 400, NAVY)}">${weekly ? rangeDate(dsr.weekStart, dsr.weekEnd) : longDate(dsr.dataThrough)}</td>
         </tr></table>
       </td>
     </tr></table>
@@ -215,7 +236,7 @@ export function renderDSREmail(dsr, opts = {}) {
             <td valign="middle" width="190" style="padding-left:8px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td valign="middle" width="40">${img("rs-hospital", 30, 30, "")}</td>
-                <td valign="middle"><div style="${T(19, 700, NAVY, "line-height:22px;")}">${rs.reportingCount} / ${rs.totalCount}</div><div style="${T(12, 400, DIM)}">Hospitals Reporting</div></td>
+                <td valign="middle"><div style="${T(19, 700, NAVY, "line-height:22px;")}">${rs.reportingCount} / ${rs.totalCount}</div><div style="${T(12, 400, DIM)}">${weekly ? "Reported All 7 Days" : "Hospitals Reporting"}</div></td>
               </tr></table>
             </td>
             <td valign="middle" width="150" style="border-left:1px solid ${PINK_LINE};padding-left:16px;">
@@ -240,9 +261,13 @@ export function renderDSREmail(dsr, opts = {}) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:10px;">
       <tr><td bgcolor="${WHITE}" style="background-color:${WHITE};border-radius:10px;padding:16px 16px 14px;">
         ${sectionHead("badge-chart", "REVENUE ACHIEVEMENT BY HOSPITAL")}
-        <div style="${T(12, 400, DIM, "line-height:17px;padding:10px 0 12px;")}">Day ${day} of ${dim}. <b>Target to Date</b> = monthly target &times; ${day}/${dim}. <b>Achievement %</b> compares revenue earned so far with that figure; 100% means exactly on pace.</div>
+        ${weekly
+          ? `<div style="${T(12, 400, DIM, "line-height:17px;padding:10px 0 12px;")}"><b>Weekly Target</b> = each day's share of that month's target (monthly target &divide; days in the month), added up over the 7 days. <b>Achievement %</b> compares the week's revenue with that figure; 100% means exactly on target.</div>`
+          : `<div style="${T(12, 400, DIM, "line-height:17px;padding:10px 0 12px;")}">Day ${day} of ${dim}. <b>Target to Date</b> = monthly target &times; ${day}/${dim}. <b>Achievement %</b> compares revenue earned so far with that figure; 100% means exactly on pace.</div>`}
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:8px;">
-          <tr>${th("Hospital")}${th("MTD Revenue (₦)", "right")}${th("Monthly Target (₦)", "right")}${th("Target to Date (₦)", "right")}${th("Achievement %", "right")}${th("Status")}</tr>
+          <tr>${weekly
+            ? `${th("Hospital")}${th("Week Revenue (₦)", "right")}${th("Weekly Target (₦)", "right")}${th("Achievement %", "right")}${th("Status")}`
+            : `${th("Hospital")}${th("MTD Revenue (₦)", "right")}${th("Monthly Target (₦)", "right")}${th("Target to Date (₦)", "right")}${th("Achievement %", "right")}${th("Status")}`}</tr>
           ${achievementRows}
         </table>
       </td></tr>
