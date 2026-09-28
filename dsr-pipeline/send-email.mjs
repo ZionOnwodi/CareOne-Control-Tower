@@ -11,9 +11,11 @@
 //   SMTP_USER   full mailbox address, e.g. zion.onwodi@careoneng.com
 //   SMTP_PASS   that mailbox's password or app password
 //   MAIL_FROM   default: SMTP_USER   (display name allowed:  "CareOne Control Tower <zion.onwodi@careoneng.com>")
-//   MAIL_TO     comma-separated recipients (required)
+//   MAIL_TO     comma-separated recipients (required unless TEST_MODE=1)
+//   MAIL_TO_TEST comma-separated test recipients. With TEST_MODE=1 the email goes ONLY here; MAIL_TO is
+//               ignored entirely, and a missing MAIL_TO_TEST stops the send rather than use the real list.
 //   MAIL_SUBJECT optional override; default comes from dsr-meta.json (+ " — TEST" if TEST_MODE=1)
-//   TEST_MODE   "1" appends " — TEST" to the subject
+//   TEST_MODE   "1" appends " — TEST" to the subject and sends only to MAIL_TO_TEST
 
 import fs from "fs";
 import path from "path";
@@ -34,8 +36,13 @@ for (const [cid, file] of Object.entries(EMAIL_ASSETS)) {
   attachments.push({ filename: `${cid}.png`, path: file, cid, contentType: "image/png", contentDisposition: "inline" });
 }
 
+const testMode = process.env.TEST_MODE === "1";
 let subject = process.env.MAIL_SUBJECT || meta.subject;
-if (process.env.TEST_MODE === "1" && !process.env.MAIL_SUBJECT) subject += " — TEST";
+if (testMode && !process.env.MAIL_SUBJECT) subject += " — TEST";
+
+// Test runs go only to MAIL_TO_TEST. MAIL_TO is never read in test mode, so a test can't reach the real list.
+const recipientVar = testMode ? "MAIL_TO_TEST" : "MAIL_TO";
+const recipients = process.env[recipientVar] || "";
 
 const text = `CareOne Enterprise Control Tower — ${meta.reportName || "Daily Situation Report"} (${meta.dataThrough}).\nThis report is best viewed in an HTML-capable email client.`;
 
@@ -45,14 +52,18 @@ if (emlIdx !== -1) {
   const t = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "windows" });
   const info = await t.sendMail({
     from: process.env.MAIL_FROM || "CareOne Control Tower <control-tower@careoneng.com>",
-    to: process.env.MAIL_TO || "recipient@example.com", subject, text, html, attachments,
+    to: recipients || "recipient@example.com", subject, text, html, attachments,
   });
   fs.writeFileSync(out, info.message);
   console.log(`Wrote ${out} (${attachments.length} embedded images, ${(info.message.length / 1024).toFixed(0)} KB).`);
   process.exit(0);
 }
 
-const need = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", "MAIL_TO"].filter(k => !process.env[k]);
+if (testMode && !recipients.trim()) {
+  console.error("TEST_MODE=1 but MAIL_TO_TEST is not set. Refusing to send: test emails never fall back to MAIL_TO.");
+  process.exit(2);
+}
+const need = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS", recipientVar].filter(k => !process.env[k]);
 if (need.length) { console.error("Missing environment variables: " + need.join(", ")); process.exit(2); }
 
 const port = Number(process.env.SMTP_PORT || 587);
@@ -62,7 +73,7 @@ const transporter = nodemailer.createTransport({
 });
 const info = await transporter.sendMail({
   from: process.env.MAIL_FROM || process.env.SMTP_USER,
-  to: process.env.MAIL_TO.split(",").map(s => s.trim()).filter(Boolean),
+  to: recipients.split(",").map(s => s.trim()).filter(Boolean),
   subject, text, html, attachments,
 });
-console.log(`Sent "${subject}" to ${process.env.MAIL_TO} (${attachments.length} embedded images). Message id: ${info.messageId}`);
+console.log(`Sent "${subject}" to ${recipients}${testMode ? " (TEST: MAIL_TO_TEST only)" : ""} (${attachments.length} embedded images). Message id: ${info.messageId}`);
