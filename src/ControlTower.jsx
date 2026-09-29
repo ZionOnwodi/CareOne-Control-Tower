@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ============================================================================
@@ -997,6 +997,25 @@ export default function ControlTower() {
   const [thresholds, setThresholds] = useState(CONFIG.thresholds);
   const [selHospital, setSelHospital] = useState("ULT");
   const [selectedPeriod, setSelectedPeriod] = useState(() => availableMonths[availableMonths.length - 1]);
+  const [navOpen, setNavOpen] = useState(false);          // mobile drawer only; ignored at desktop widths
+
+  // Mobile drawer: lock background scroll while open, close on Escape, and close if the
+  // viewport grows past the mobile breakpoint so the lock never outlives the drawer.
+  useEffect(() => {
+    if (!navOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = e => { if (e.key === "Escape") setNavOpen(false); };
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onMq = e => { if (e.matches) setNavOpen(false); };
+    window.addEventListener("keydown", onKey);
+    mq.addEventListener("change", onMq);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+      mq.removeEventListener("change", onMq);
+    };
+  }, [navOpen]);
   const [exState, setExState] = useState({});           // id -> {status, owner, severity, sla, evidence, history}
   const [exFilter, setExFilter] = useState("ALL");
 
@@ -1052,7 +1071,7 @@ export default function ControlTower() {
   const groups = [...new Set(CONFIG.modules.map(m => m.group))];
 
   return (
-    <div style={{ display:"flex", minHeight:"100vh", background:C.bg, color:C.ink, fontFamily:"'IBM Plex Sans', system-ui, sans-serif", fontSize:13 }}>
+    <div className="ct-root" style={{ display:"flex", minHeight:"100vh", background:C.bg, color:C.ink, fontFamily:"'IBM Plex Sans', system-ui, sans-serif", fontSize:13 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
         * { box-sizing:border-box; }
@@ -1062,10 +1081,43 @@ export default function ControlTower() {
         button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid #4B7FA8; outline-offset:1px; }
         table { border-collapse:collapse; width:100%; }
         tbody tr:hover { background:#F7F8FA; }
+
+        /* mobile layout — below 768px only; desktop is untouched */
+        .ct-topbar, .ct-backdrop { display:none; }
+        @media (max-width: 767px) {
+          .ct-root { display:block !important; overflow-x:clip; }
+          .ct-topbar { display:flex; align-items:center; gap:10px; height:48px; padding:0 16px 0 8px;
+                       position:sticky; top:0; z-index:30; }
+          .ct-menu-btn { display:flex; align-items:center; justify-content:center; width:40px; height:40px;
+                         background:transparent; border:none; cursor:pointer; padding:0; }
+          .ct-nav { position:fixed !important; left:0; top:0; z-index:50; width:min(280px, 85vw) !important;
+                    height:100dvh !important; transform:translateX(-100%); visibility:hidden;
+                    transition:transform .2s ease, visibility 0s linear .2s; }
+          .ct-nav.open { transform:none; visibility:visible; transition:transform .2s ease; box-shadow:0 0 24px rgba(0,0,0,.18); }
+          .ct-backdrop { display:block; position:fixed; inset:0; z-index:40; background:rgba(20,24,30,.35); border:none; padding:0; }
+          .ct-status { top:48px !important; gap:4px 16px !important; padding:8px 16px !important; }
+          .ct-status > div { white-space:nowrap; }
+          .ct-content { padding:16px 16px 48px !important; }
+          .ct-content h1 { font-size:18px !important; }
+          .ct-scroll-x { overflow-x:auto; }
+          .ct-attn-row { flex-wrap:wrap; }
+          .ct-attn-row > :last-child { flex-basis:100%; padding-left:118px; margin-top:-6px; }
+        }
       `}</style>
 
+      {/* mobile top bar — hidden at desktop widths */}
+      <div className="ct-topbar" style={{ background:C.panel, borderBottom:`1px solid ${C.line}` }}>
+        <button className="ct-menu-btn" aria-label="Open menu" aria-expanded={navOpen} onClick={()=>setNavOpen(true)} style={{ color:C.ink }}>
+          <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        </button>
+        <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
+          Care<span style={{ color:C.brand }}>One</span>
+        </div>
+      </div>
+      {navOpen && <button className="ct-backdrop" aria-label="Close menu" onClick={()=>setNavOpen(false)} />}
+
       {/* left rail */}
-      <nav style={{ width:206, flexShrink:0, background:C.panel, borderRight:`1px solid ${C.line}`, position:"sticky", top:0, height:"100vh", overflowY:"auto" }}>
+      <nav className={navOpen ? "ct-nav open" : "ct-nav"} style={{ width:206, flexShrink:0, background:C.panel, borderRight:`1px solid ${C.line}`, position:"sticky", top:0, height:"100vh", overflowY:"auto" }}>
         <div style={{ padding:"16px 16px 14px", borderBottom:`1px solid ${C.line}` }}>
           <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
             Care<span style={{ color:C.brand }}>One</span>
@@ -1090,7 +1142,7 @@ export default function ControlTower() {
               const active = module === m.id;
               const badge = m.id === "exceptions" ? openEx.length : null;
               return (
-                <button key={m.id} onClick={()=>setModule(m.id)} style={{
+                <button key={m.id} onClick={()=>{ setModule(m.id); setNavOpen(false); }} style={{
                   display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, width:"100%", textAlign:"left",
                   padding:"7px 16px", background: active ? "rgba(192,57,47,.09)" : "transparent",
                   border:"none", borderLeftWidth:2, borderLeftStyle:"solid", borderLeftColor: active ? C.brand : "transparent",
@@ -1107,7 +1159,7 @@ export default function ControlTower() {
 
       <main style={{ flex:1, minWidth:0 }}>
         {/* status strip */}
-        <div style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:20, padding:"10px 22px",
+        <div className="ct-status" style={{ display:"flex", flexWrap:"wrap", alignItems:"center", gap:20, padding:"10px 22px",
                       background:C.panel2, borderBottom:`1px solid ${C.line}`, position:"sticky", top:0, zIndex:5 }}>
           <div><span style={{ color:C.inkFaint, fontSize:11 }}>Reporting date </span><Mono style={{ fontSize:12 }}>{model.period.asOfDate}</Mono></div>
           <div><span style={{ color:C.inkFaint, fontSize:11 }}>Source </span>
@@ -1119,7 +1171,7 @@ export default function ControlTower() {
             <Mono style={{ fontSize:12, color: openEx.length ? C.red : C.green }}>{openEx.length}</Mono></div>
         </div>
 
-        <div style={{ padding:"20px 22px 60px", maxWidth:1500 }}>
+        <div className="ct-content" style={{ padding:"20px 22px 60px", maxWidth:1500 }}>
           {module === "overview"   && <Overview {...{model, network, ex, openEx, thresholds, setModule, setSelHospital}} />}
           {module === "hospitals"  && <Hospitals {...{model, selHospital, setSelHospital, thresholds, ex}} />}
           {module === "exceptions" && <Exceptions {...{ex, updateEx, exFilter, setExFilter, model}} />}
@@ -1176,7 +1228,7 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
         <div style={{ padding:"6px 16px 14px" }}>
           {attention.length === 0 && <p style={{ fontSize:12.5, color:C.inkDim, margin:"10px 0" }}>Nothing outstanding.</p>}
           {attention.map(e => (
-            <div key={e.id} style={{ display:"flex", gap:12, alignItems:"baseline", padding:"9px 0", borderBottom:`1px solid ${C.lineSoft}` }}>
+            <div key={e.id} className="ct-attn-row" style={{ display:"flex", gap:12, alignItems:"baseline", padding:"9px 0", borderBottom:`1px solid ${C.lineSoft}` }}>
               <Mono style={{ fontSize:11, color:C.inkFaint, width:56, flexShrink:0 }}>{e.id}</Mono>
               <span style={{ width:38, flexShrink:0 }}><Mono style={{ fontSize:11.5, color:C.ink }}>{e.hospital}</Mono></span>
               <span style={{ flex:1, fontSize:12.5, lineHeight:1.5 }}>
@@ -1904,6 +1956,7 @@ function ConfigModule({ thresholds, setThresholds, cal, setCal, period }) {
 
       <Panel title="KPI thresholds" note={thresholds.length ? undefined : "None configured. Add one below to activate RAG rating and performance exceptions."}>
         {thresholds.length > 0 && (
+          <div className="ct-scroll-x">
           <table style={{ marginBottom:14 }}>
             <thead><tr>
               <th style={th}>KPI</th><th style={th}>Hospital</th><th style={{...th,textAlign:"right"}}>Target</th>
@@ -1919,6 +1972,7 @@ function ConfigModule({ thresholds, setThresholds, cal, setCal, period }) {
               </tr>
             ))}</tbody>
           </table>
+          </div>
         )}
         <div style={{ display:"flex", gap:9, flexWrap:"wrap", alignItems:"flex-end" }}>
           <label style={lbl}>KPI
@@ -1944,6 +1998,7 @@ function ConfigModule({ thresholds, setThresholds, cal, setCal, period }) {
       </Panel>
 
       <Panel title="Exception rules in force" note="Each rule is deterministic and testable. None depends on a threshold that was not supplied.">
+        <div className="ct-scroll-x">
         <table>
           <thead><tr><th style={th}>Rule</th><th style={th}>Category</th><th style={th}>Fires when</th></tr></thead>
           <tbody>{RULES.map(r => (
@@ -1954,6 +2009,7 @@ function ConfigModule({ thresholds, setThresholds, cal, setCal, period }) {
             </tr>
           ))}</tbody>
         </table>
+        </div>
       </Panel>
 
       <Panel title="Accountability model" note="Taken from the CEO mandate, not inferred.">
@@ -1981,6 +2037,7 @@ function Lineage({ model }) {
       </p>
 
       <Panel title="Source connections">
+        <div className="ct-scroll-x">
         <table>
           <thead><tr><th style={th}>Hospital</th><th style={th}>Source</th><th style={th}>Sheet ID</th><th style={th}>Rows read</th><th style={th}>Status</th></tr></thead>
           <tbody>{model.canon.map(h => (
@@ -1992,6 +2049,7 @@ function Lineage({ model }) {
             </tr>
           ))}</tbody>
         </table>
+        </div>
         <p style={{ fontSize:12, color:C.inkDim, margin:"12px 0 0", lineHeight:1.6, maxWidth:"80ch" }}>
           {model.source.meta.note} A live connector replaces this adapter without any change to the KPI, data-quality or
           exception layers.
