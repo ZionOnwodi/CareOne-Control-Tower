@@ -1084,6 +1084,7 @@ export default function ControlTower() {
 
         /* mobile layout — below 768px only; desktop is untouched */
         .ct-topbar, .ct-backdrop { display:none; }
+        .ct-scroll-x { overflow-x:auto; }
         @media (max-width: 767px) {
           .ct-root { display:block !important; overflow-x:clip; }
           .ct-topbar { display:flex; align-items:center; gap:10px; height:48px; padding:0 16px 0 8px;
@@ -1095,11 +1096,10 @@ export default function ControlTower() {
                     transition:transform .2s ease, visibility 0s linear .2s; }
           .ct-nav.open { transform:none; visibility:visible; transition:transform .2s ease; box-shadow:0 0 24px rgba(0,0,0,.18); }
           .ct-backdrop { display:block; position:fixed; inset:0; z-index:40; background:rgba(20,24,30,.35); border:none; padding:0; }
-          .ct-status { top:48px !important; gap:4px 16px !important; padding:8px 16px !important; }
+          .ct-status { position:static !important; gap:4px 16px !important; padding:8px 16px !important; }
           .ct-status > div { white-space:nowrap; }
           .ct-content { padding:16px 16px 48px !important; }
           .ct-content h1 { font-size:18px !important; }
-          .ct-scroll-x { overflow-x:auto; }
           .ct-attn-row { flex-wrap:wrap; }
           .ct-attn-row > :last-child { flex-basis:100%; padding-left:118px; margin-top:-6px; }
         }
