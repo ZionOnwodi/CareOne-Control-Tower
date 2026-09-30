@@ -146,8 +146,11 @@ export function computeDSR() {
   const networkAchievement = targetsKnown > 0 ? revenueOfTargeted / networkTargetToDate : null;
 
   // ---- Reporting Status ----
-  const reportingNow = canon.filter(h => reporting[h.id].missing.length === 0);
-  const notReporting = canon.filter(h => reporting[h.id].missing.length > 0);
+  // Only the report date (dataThrough) counts: a hospital is "Not Reporting" if that day's report is
+  // missing. Earlier month-to-date gaps still appear under Exceptions ("Missing reports") below.
+  const missedReportDate = h => reporting[h.id].missing.includes(dataThrough);
+  const reportingNow = canon.filter(h => !missedReportDate(h));
+  const notReporting = canon.filter(h => missedReportDate(h));
 
   // ---- Revenue Achievement by Hospital ----
   // "target" shown in the table stays the full monthly figure (the actual agreed target).
