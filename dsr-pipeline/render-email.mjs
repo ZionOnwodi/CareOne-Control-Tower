@@ -1,9 +1,9 @@
 // Renders the Daily Situation Report as an HTML email that follows the approved design template.
 // The same template renders the Weekly Situation Report with { mode: "weekly" }; the default is "daily".
 //
-// IMAGES: every image (logo, icons) is referenced as  cid:<name>  and shipped INSIDE the message as
-// an inline attachment (see send-email.mjs / EMAIL_ASSETS below). This is what makes them show in
-// Gmail, Outlook and company web-mail without the recipient having to "load images".
+// IMAGES: every image (logo, icons) is loaded by public HTTPS URL from the repo's /email-assets folder,
+// which GitHub Pages serves (.github/workflows/email-assets-pages.yml). Nothing is attached to the
+// message. Never use cid: or base64 data: URIs (Gmail blocks data: images).
 // The connected Gmail assistant tool strips all <img> tags, so this HTML must be sent through SMTP
 // (send-email.mjs) — not through that tool.
 //
@@ -11,19 +11,35 @@
 // coloured cells use BOTH a bgcolor attribute and background-color, pills are one-cell tables,
 // no emoji, no gradients.
 
-import path from "path";
-import { fileURLToPath } from "url";
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+/** Where GitHub Pages serves the repo's /email-assets folder. */
+export const EMAIL_ASSET_BASE = "https://ziononwodi.github.io/CareOne-Control-Tower/email-assets";
 
-/** cid name -> file on disk. send-email.mjs attaches each one that the HTML references. */
-export const EMAIL_ASSETS = {
-  "logo-header": path.join(HERE, "..", "public", "logo-header.png"),
-  ...Object.fromEntries([
-    "badge-chart", "badge-hospital", "badge-alert",
-    "kpi-revenue", "kpi-attendance", "kpi-admissions", "kpi-arpe", "kpi-conversion", "kpi-achievement",
-    "wf-eye", "wf-alert", "wf-gear", "wf-check", "cal", "rs-hospital", "rs-alert", "heartbeat",
-  ].map(n => [n, path.join(HERE, "email-assets", n + ".png")])),
+/** Image name used in this template -> file in /email-assets. */
+export const EMAIL_IMAGES = {
+  "logo-header": "logo-control-tower.png",
+  "badge-chart": "icon-section-chart.png",
+  "badge-hospital": "icon-section-hospital.png",
+  "badge-alert": "icon-section-alert.png",
+  "kpi-revenue": "icon-revenue.png",
+  "kpi-attendance": "icon-attendance.png",
+  "kpi-admissions": "icon-admissions.png",
+  "kpi-arpe": "icon-arpe.png",
+  "kpi-conversion": "icon-conversion.png",
+  "kpi-achievement": "icon-achievement.png",
+  "wf-eye": "icon-see-early.png",
+  "wf-alert": "icon-escalate-fast.png",
+  "wf-gear": "icon-act-decisively.png",
+  "wf-check": "icon-close-completely.png",
+  "cal": "icon-calendar.png",
+  "rs-hospital": "icon-hospitals-reporting.png",
+  "rs-alert": "icon-not-reporting.png",
+  "heartbeat": "icon-heartbeat.png",
 };
+
+function imgUrl(name) {
+  if (!EMAIL_IMAGES[name]) throw new Error(`No hosted image registered for "${name}" (add it to EMAIL_IMAGES)`);
+  return `${EMAIL_ASSET_BASE}/${EMAIL_IMAGES[name]}`;
+}
 
 // ---- palette (from the template) ----
 const RED = "#D31E24", RED_DEEP = "#A61B14", NAVY = "#14213D", INK = "#1F2937", DIM = "#6B7787";
@@ -55,7 +71,7 @@ function rangeDate(startIso, endIso) {
 }
 
 const img = (name, w, h, alt = "") =>
-  `<img src="cid:${name}" width="${w}" height="${h}" alt="${esc(alt)}" style="display:block;border:0;outline:none;width:${w}px;height:${h}px;">`;
+  `<img src="${imgUrl(name)}" width="${w}" height="${h}" alt="${esc(alt)}" style="display:block;border:0;outline:none;width:${w}px;height:${h}px;">`;
 
 // One-cell-table pill (Gmail keeps table-cell backgrounds; it drops them on spans).
 function pill(bg, fg, label) {

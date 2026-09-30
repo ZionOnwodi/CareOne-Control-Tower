@@ -42,7 +42,7 @@ fs.writeFileSync(
 
 // 3. Compute + render.
 const { computeWSR, defaultWeekStart, validateWeekStart } = await import("./wsr-data.mjs?update=" + Date.now());
-const { renderDSREmail, EMAIL_ASSETS } = await import("./render-email.mjs?update=" + Date.now());
+const { renderDSREmail } = await import("./render-email.mjs?update=" + Date.now());
 
 let weekStart;
 try { weekStart = weekStartArg ? validateWeekStart(weekStartArg) : defaultWeekStart(); }
@@ -70,10 +70,8 @@ if (wsr.snapshot.revenue === 0 && wsr.snapshot.attendance === 0) {
 const html = renderDSREmail(wsr, { mode: "weekly" });
 fs.writeFileSync("./dsr-email-output.html", html);
 
-// Browser-viewable preview: same HTML with each cid: image swapped for its local file.
-let preview = html;
-for (const [cid, file] of Object.entries(EMAIL_ASSETS)) preview = preview.split(`cid:${cid}"`).join(`file://${file}"`);
-fs.writeFileSync("./wsr-email-preview.html", preview);
+// Browser-viewable preview: the images load from their hosted URLs, so it is the same HTML.
+fs.writeFileSync("./wsr-email-preview.html", html);
 
 // Details the send step needs. send-email.mjs reads this.
 fs.writeFileSync("./dsr-meta.json", JSON.stringify({

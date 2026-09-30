@@ -1,6 +1,6 @@
 name: Daily Situation Report
 
-# Builds the DSR and emails it over SMTP with the CareOne logo and icons embedded.
+# Builds the DSR and emails it over SMTP (logo and icons load from GitHub Pages; nothing is attached).
 # Run it by hand from the Actions tab first (Run workflow). When you are happy with the result,
 # uncomment the schedule below.
 on:

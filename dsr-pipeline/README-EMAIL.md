@@ -1,7 +1,22 @@
 # Sending the Daily Situation Report
 
-`run-daily-dsr.mjs` builds the report. `send-email.mjs` emails it with the CareOne logo and icons
-**embedded in the message**, so they show in Gmail, Outlook and company mail without "load images".
+`run-daily-dsr.mjs` builds the report. `send-email.mjs` emails it. The CareOne logo and icons are **not
+attached**: the HTML loads them by URL from GitHub Pages, so the email has no attachments.
+
+## Email images
+All images live in `/email-assets` at the repo root and are served publicly at
+`https://ziononwodi.github.io/CareOne-Control-Tower/email-assets/<file>.png`
+by the **Publish email images** workflow (`.github/workflows/email-assets-pages.yml`), which runs on every
+push to `main` that touches `email-assets/` and then checks every image returns 200 + image/png.
+
+- **Replace an icon:** overwrite the file in `/email-assets` with the same name (PNG, same aspect ratio;
+  2-3x the displayed size for sharp retina rendering) and merge to `main`. Mail clients may cache the old
+  image for a while; to force a refresh, give it a new filename and update `EMAIL_IMAGES` as below.
+- **Add an icon:** add the PNG to `/email-assets`, register it in `EMAIL_IMAGES` in
+  `dsr-pipeline/render-email.mjs` (`"my-name": "icon-my-name.png"`), and use it in the template with
+  `img("my-name", width, height, "alt text")` or `iconCell(...)`. Merge to `main` and wait for the
+  workflow to go green **before** the next send, or the image will show as broken.
+- Never use `cid:` or base64 `data:` images; `send-email.mjs` refuses to send HTML containing them.
 
 ## Whose password?
 Only the **sending** account's. The person receiving the report (e.g. the CEO) is just an address in
