@@ -1,0 +1,64 @@
+name: Publish email images
+
+# Publishes the /email-assets folder to GitHub Pages so the DSR / WSR emails can load the logo and
+# icons by public URL (no attachments):
+#   https://ziononwodi.github.io/CareOne-Control-Tower/email-assets/<file>.png
+# Then checks every image is reachable WITHOUT any login or token (HTTP 200 + image/png).
+#
+# One-time setup: repo -> Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths: ["email-assets/**", ".github/workflows/email-assets-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stage the site (only the email-assets folder is published)
+        run: |
+          mkdir -p _site
+          cp -r email-assets _site/email-assets
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every image returns 200 + image/png with no credentials
+        run: |
+          base="https://ziononwodi.github.io/CareOne-Control-Tower/email-assets"
+          fail=0
+          for f in email-assets/*.png; do
+            url="$base/$(basename "$f")"
+            ok=""
+            for i in 1 2 3 4 5 6; do   # Pages can take a minute to go live after a deploy
+              out=$(curl -sS -o /dev/null -w "%{http_code} %{content_type}" "$url" || true)
+              case "$out" in "200 image/png"*) ok=1; break;; esac
+              sleep 10
+            done
+            echo "$out  $url"
+            [ -n "$ok" ] || fail=1
+          done
+          [ "$fail" = 0 ] || { echo "Some images are not publicly reachable"; exit 1; }
