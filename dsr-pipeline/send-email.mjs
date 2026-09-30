@@ -1,5 +1,6 @@
-// Sends the DSR built by run-daily-dsr.mjs over SMTP, with the logo and icons EMBEDDED in the message
-// (multipart/related + Content-ID), so they show in Gmail, Outlook and web-hosted company mail.
+// Sends the DSR / WSR built by run-daily-dsr.mjs / run-weekly-wsr.mjs over SMTP. The logo and icons are
+// NOT attached: the HTML loads them by public URL from GitHub Pages (see render-email.mjs), so the
+// message has no attachments.
 //
 //   node send-email.mjs                  send using the SMTP_* environment variables
 //   node send-email.mjs --eml out.eml    write the finished raw email to a file instead of sending
@@ -21,20 +22,14 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
-import { EMAIL_ASSETS } from "./render-email.mjs";
 
 process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 
 const html = fs.readFileSync("./dsr-email-output.html", "utf8");
 const meta = JSON.parse(fs.readFileSync("./dsr-meta.json", "utf8"));
 
-// Attach exactly the images the HTML references.
-const attachments = [];
-for (const [cid, file] of Object.entries(EMAIL_ASSETS)) {
-  if (!html.includes(`cid:${cid}"`)) continue;
-  if (!fs.existsSync(file)) throw new Error(`Missing image for cid:${cid} -> ${file}`);
-  attachments.push({ filename: `${cid}.png`, path: file, cid, contentType: "image/png", contentDisposition: "inline" });
-}
+// Images are hosted, never attached. Refuse to send HTML that still expects cid: or data: images.
+if (/src="(cid|data):/i.test(html)) throw new Error("dsr-email-output.html still has cid:/data: images; they must be hosted URLs.");
 
 const testMode = process.env.TEST_MODE === "1";
 let subject = process.env.MAIL_SUBJECT || meta.subject;
@@ -52,10 +47,10 @@ if (emlIdx !== -1) {
   const t = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "windows" });
   const info = await t.sendMail({
     from: process.env.MAIL_FROM || "CareOne Control Tower <control-tower@careoneng.com>",
-    to: recipients || "recipient@example.com", subject, text, html, attachments,
+    to: recipients || "recipient@example.com", subject, text, html,
   });
   fs.writeFileSync(out, info.message);
-  console.log(`Wrote ${out} (${attachments.length} embedded images, ${(info.message.length / 1024).toFixed(0)} KB).`);
+  console.log(`Wrote ${out} (no attachments, ${(info.message.length / 1024).toFixed(0)} KB).`);
   process.exit(0);
 }
 
@@ -74,6 +69,6 @@ const transporter = nodemailer.createTransport({
 const info = await transporter.sendMail({
   from: process.env.MAIL_FROM || process.env.SMTP_USER,
   to: recipients.split(",").map(s => s.trim()).filter(Boolean),
-  subject, text, html, attachments,
+  subject, text, html,
 });
-console.log(`Sent "${subject}" to ${recipients}${testMode ? " (TEST: MAIL_TO_TEST only)" : ""} (${attachments.length} embedded images). Message id: ${info.messageId}`);
+console.log(`Sent "${subject}" to ${recipients}${testMode ? " (TEST: MAIL_TO_TEST only)" : ""} (no attachments). Message id: ${info.messageId}`);

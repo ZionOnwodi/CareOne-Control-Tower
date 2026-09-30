@@ -44,17 +44,15 @@ fs.writeFileSync(
 
 // 3. Compute + render.
 const { computeDSR } = await import("./dsr-data.mjs?update=" + Date.now());
-const { renderDSREmail, EMAIL_ASSETS } = await import("./render-email.mjs?update=" + Date.now());
+const { renderDSREmail } = await import("./render-email.mjs?update=" + Date.now());
 
 const dsr = computeDSR();
 const html = renderDSREmail(dsr);
 
 fs.writeFileSync("./dsr-email-output.html", html);
 
-// Browser-viewable preview: same HTML with each cid: image swapped for its local file.
-let preview = html;
-for (const [cid, file] of Object.entries(EMAIL_ASSETS)) preview = preview.split(`cid:${cid}"`).join(`file://${file}"`);
-fs.writeFileSync("./dsr-email-preview.html", preview);
+// Browser-viewable preview: the images load from their hosted URLs, so it is the same HTML.
+fs.writeFileSync("./dsr-email-preview.html", html);
 
 // Details the send step needs (subject, date). send-email.mjs reads this.
 fs.writeFileSync("./dsr-meta.json", JSON.stringify({

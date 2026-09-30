@@ -2,7 +2,7 @@
   "name": "careone-dsr-pipeline",
   "private": true,
   "type": "module",
-  "description": "Daily Situation Report: build the HTML email and send it over SMTP with the logo/icons embedded.",
+  "description": "Daily Situation Report: build the HTML email and send it over SMTP (images hosted on GitHub Pages, no attachments).",
   "scripts": {
     "build": "node run-daily-dsr.mjs",
     "send": "node send-email.mjs",
