@@ -1135,8 +1135,11 @@ export default function ControlTower() {
         <button className="ct-menu-btn" aria-label="Open menu" aria-expanded={navOpen} onClick={()=>setNavOpen(true)} style={{ color:C.ink }}>
           <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
         </button>
-        <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
-          Care<span style={{ color:C.brand }}>One</span>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <img src="/logo-header.png" alt="CareOne Control Tower logo" width={30} height={30} style={{ display:"block", flexShrink:0 }} />
+          <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
+            Care<span style={{ color:C.brand }}>One</span>
+          </div>
         </div>
       </div>
       {navOpen && <button className="ct-backdrop" aria-label="Close menu" onClick={()=>setNavOpen(false)} />}
@@ -1144,10 +1147,15 @@ export default function ControlTower() {
       {/* left rail */}
       <nav className={navOpen ? "ct-nav open" : "ct-nav"} style={{ width:206, flexShrink:0, background:C.panel, borderRight:`1px solid ${C.line}`, position:"sticky", top:0, height:"100vh", overflowY:"auto" }}>
         <div style={{ padding:"16px 16px 14px", borderBottom:`1px solid ${C.line}` }}>
-          <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
-            Care<span style={{ color:C.brand }}>One</span>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <img src="/logo-header.png" alt="CareOne Control Tower logo" width={44} height={44} style={{ display:"block", flexShrink:0 }} />
+            <div style={{ minWidth:0 }}>
+              <div style={{ fontSize:15, fontWeight:600, letterSpacing:-.2 }}>
+                Care<span style={{ color:C.brand }}>One</span>
+              </div>
+              <div style={{ fontSize:11, color:C.inkDim, marginTop:2 }}>Control Tower</div>
+            </div>
           </div>
-          <div style={{ fontSize:11, color:C.inkDim, marginTop:2 }}>Enterprise Control Tower</div>
           <Mono style={{ fontSize:10, color:C.inkFaint, marginTop:5, display:"block" }}>v0.1 · {model.period.label}</Mono>
         </div>
 
