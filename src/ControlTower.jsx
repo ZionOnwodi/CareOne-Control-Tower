@@ -17,7 +17,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 
 const CONFIG = {
   period: { id: "2026-09", label: "September 2026", start: "2026-09-01", end: "2026-09-30" },
-  asOfDate: "2026-09-18",
+  asOfDate: "2026-10-01",
 
   // Reporting calendar is NOT supplied by the business. Declared, not assumed.
   reportingCalendar: {
@@ -105,7 +105,7 @@ const CONFIG = {
 const SOURCE_META = {
   type: "GOOGLE_SHEETS",
   status: "SNAPSHOT",
-  readAt: "2026-09-25T10:54:00+01:00",
+  readAt: "2026-10-02T13:11:00+01:00",
   note: "Read directly from the eleven live hospital sheets via the connected Drive account. Values are a point-in-time snapshot, not a live feed.",
 };
 
@@ -320,7 +320,7 @@ const RAW = {
     { d:"2026-09-27", att:25, nreg:5, priv:4, hmo:19, lash:null, nhia:null, comp:2, adm:6, rConv:0.24, onadm:9, disch:7, yld:10, rPctY:0.4, tat:17.9, det:0, prom:9, indiff:1, rNPS:0.9, privRev:1302590, hmoRev:460694.38, nhiaRev:null, compRev:80497.74, rTotRev:1843782.12, rARPE:73751.28, rMTD:26464452.97, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"73.94%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
     { d:"2026-09-28", att:107, nreg:17, priv:2, hmo:93, lash:null, nhia:null, comp:12, adm:11, rConv:0.1028, onadm:15, disch:15, yld:94, rPctY:0.8785, tat:33.5, det:1, prom:75, indiff:4, rNPS:0.925, privRev:108980, hmoRev:2725567.16, nhiaRev:null, compRev:611794.59, rTotRev:3446341.75, rARPE:32208.8, rMTD:29910794.72, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"82.96%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
     { d:"2026-09-29", att:123, nreg:13, priv:2, hmo:105, lash:null, nhia:null, comp:16, adm:3, rConv:0.0244, onadm:8, disch:1, yld:60, rPctY:0.4878, tat:37.9, det:1, prom:54, indiff:5, rNPS:0.8833333333, privRev:104605, hmoRev:3038178.04, nhiaRev:null, compRev:847253.68, rTotRev:3990036.72, rARPE:32439.32, rMTD:33900831.44, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"93.71%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
-    { d:"2026-09-30", att:105, nreg:14, priv:1, hmo:94, lash:null, nhia:null, comp:10, adm:4, rConv:0.0381, onadm:12, disch:6, yld:103, rPctY:0.981, tat:35.6, det:1, prom:82, indiff:20, rNPS:0.786407767, privRev:463350, hmoRev:null, nhiaRev:null, compRev:null, rTotRev:463350, rARPE:4412.86, rMTD:34364181.44, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"94.74%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
+    { d:"2026-09-30", att:105, nreg:14, priv:1, hmo:94, lash:null, nhia:null, comp:10, adm:4, rConv:0.0381, onadm:12, disch:6, yld:103, rPctY:0.981, tat:35.6, det:1, prom:82, indiff:20, rNPS:0.786407767, privRev:463350, hmoRev:2749398.37, nhiaRev:null, compRev:315035.7, rTotRev:3527784.07, rARPE:33597.94, rMTD:37428615.51, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"102.25%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
   ],
   MTP: [
     { d:"2026-09-01", att:19, nreg:0, priv:5, hmo:14, lash:0, nhia:0, comp:0, adm:2, rConv:0.1053, onadm:0.03, disch:3, yld:10, rPctY:0.5263, tat:68, det:0, prom:10, indiff:0, rNPS:1, privRev:129000, hmoRev:323915.78, nhiaRev:0, compRev:0, rTotRev:452915.78, rARPE:23837.67, rMTD:452915.78, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"1.01%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
