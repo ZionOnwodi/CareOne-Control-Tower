@@ -5,13 +5,13 @@ import { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonica
    ----------------------------------------------------------------------------
    CEO-approved monthly targets (effective 2026-09-21; Outreach Lekki, Festac
    and Okota added 2026-09-28). A hospital without an approved target stays
-   explicitly null (currently Mainframe) rather than guessed, so it shows as
+   explicitly null (none currently) rather than guessed, so it shows as
    "not configured", never a fabricated number. Shared by the DSR and the WSR:
    this is the ONLY place target values need to be entered; nothing else in
    this file, wsr-data.mjs or the email template needs to change.
    ============================================================================ */
 export const REVENUE_TARGETS_NGN = {
-  ULT: 200000000, FHM: 10000000, MFM: null, NLB: 150000000, ROD: 20000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
+  ULT: 200000000, FHM: 10000000, NLB: 150000000, ROD: 20000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
   OLK: 75000000, OFE: 70000000, OOK: 50000000,
 };
 
