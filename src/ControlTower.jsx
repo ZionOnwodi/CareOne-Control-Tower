@@ -1001,7 +1001,6 @@ const C = {
 };
 
 const money = v => v === null || v === undefined ? "—" : "₦" + Math.round(v).toLocaleString();
-const moneyK = v => v === null || v === undefined ? "—" : v >= 1e6 ? "₦" + (v/1e6).toFixed(1) + "m" : "₦" + Math.round(v/1000) + "k";
 const pct = (v, d=1) => v === null || v === undefined ? "—" : (v*100).toFixed(d) + "%";
 const int = v => v === null || v === undefined ? "—" : Math.round(v).toLocaleString();
 const dayLabel = iso => { const d = new Date(iso+"T00:00:00"); return d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}); };
@@ -1349,7 +1348,7 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(168px,1fr))", gap:10, marginBottom:18 }}>
-        <Stat label="Total network revenue" value={moneyK(network.revenue)} sub={`${model.period.label}, submitted days`} />
+        <Stat label="Total network revenue" value={money(network.revenue)} sub={`${model.period.label}, submitted days`} />
         <Stat label="Total patient attendance" value={int(network.attendance)} sub={`${int(network.newReg)} new registrations`} />
         <Stat label="Total admissions" value={int(network.admissions)} sub={`${int(network.discharges)} discharges`} />
         <Stat label="Network ARPE" value={money(network.arpe)} sub="Revenue ÷ attendance" />
@@ -1412,7 +1411,7 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
                 return (
                   <tr key={h.id} style={{ cursor:"pointer" }} onClick={()=>{ setSelHospital(h.id); setModule("hospitals"); }}>
                     <td style={td}><Mono style={{ fontSize:11, color:C.inkFaint }}>{h.id}</Mono> <span style={{ marginLeft:6 }}>{h.name}</span></td>
-                    <td style={tdR}>{moneyK(k.revenue)}</td>
+                    <td style={tdR}>{money(k.revenue)}</td>
                     <td style={tdR}>{int(k.attendance)}</td>
                     <td style={tdR}>{money(k.arpe)}</td>
                     <td style={tdR}>{int(k.admissions)}</td>
@@ -1477,6 +1476,11 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
   const hEx = ex.filter(e => e.hospital === h.id && e.status !== "CLOSED");
   const series = K.perDay.filter(d => d.submitted).map(d => ({ date:dayLabel(d.date), revenue:d.revenue, attendance:d.attendance, arpe:d.arpe }));
 
+  const payerRev = [["privRev","Private"],["hmoRev","HMO"],["nhiaRev","NHIA"],["compRev","Company"]].map(([key,label]) => {
+    let total = null, days = 0;
+    h.records.filter(r => r.submitted).forEach(r => { const v = num(r.f[key]?.value); if (v !== null) { total = (total ?? 0) + v; days++; } });
+    return { key, label, total, days, na: h.naFields.includes(key) };
+  });
   return (
     <>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:16 }}>
@@ -1505,7 +1509,11 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
       )}
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:10, marginBottom:16 }}>
-        <Stat label="Revenue" value={moneyK(K.totals.revenue)} />
+        <Stat label="Revenue" value={money(K.totals.revenue)} />
+        {payerRev.map(p => (
+          <Stat key={p.key} label={`${p.label} revenue`} value={p.na ? "N/A" : p.total === null ? "Not reported" : money(p.total)}
+                sub={p.na ? "Declared not applicable" : p.total === null ? "No value in any submitted day" : `${p.days} of ${K.totals.daysSubmitted} days reported`} />
+        ))}
         <Stat label="Attendance" value={int(K.totals.attendance)} />
         <Stat label="ARPE" value={money(K.totals.arpe)} />
         <Stat label="Admissions" value={int(K.totals.admissions)} />
@@ -1521,7 +1529,7 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
             <XAxis dataKey="date" tick={{ fill:C.inkFaint, fontSize:11 }} axisLine={{ stroke:C.line }} tickLine={false} />
             <YAxis yAxisId="l" tickFormatter={v=>`${(v/1e6).toFixed(1)}m`} tick={{ fill:C.inkFaint, fontSize:11 }} axisLine={false} tickLine={false} />
             <YAxis yAxisId="r" orientation="right" tick={{ fill:C.inkFaint, fontSize:11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background:C.panel2, border:`1px solid ${C.line}`, borderRadius:3, fontSize:12 }} labelStyle={{ color:C.inkDim }} />
+            <Tooltip contentStyle={{ background:C.panel2, border:`1px solid ${C.line}`, borderRadius:3, fontSize:12 }} labelStyle={{ color:C.inkDim }} formatter={(v,name)=> name==="Revenue" ? money(v) : v} />
             <Line yAxisId="l" dataKey="revenue" stroke={C.info} strokeWidth={2} dot={{ r:2 }} name="Revenue" />
             <Line yAxisId="r" dataKey="attendance" stroke={C.amber} strokeWidth={2} dot={{ r:2 }} name="Attendance" />
           </LineChart>
@@ -1866,13 +1874,13 @@ function Revenue({ model }) {
                 return (
                   <tr key={h.id}>
                     <td style={td}>{h.name}</td>
-                    <td style={tdR}>{naf.has("privRev") ? <span style={{color:C.info,fontSize:11}}>N/A</span> : moneyK(s("privRev"))}</td>
-                    <td style={tdR}>{moneyK(s("hmoRev"))}</td>
-                    <td style={tdR}>{s("nhiaRev")===null ? <span style={{color:C.inkFaint,fontSize:11}}>not obs.</span> : moneyK(s("nhiaRev"))}</td>
-                    <td style={tdR}>{s("compRev")===null ? <span style={{color:C.inkFaint,fontSize:11}}>not obs.</span> : moneyK(s("compRev"))}</td>
-                    <td style={{...tdR, color:C.ink}}>{moneyK(model.kpis[h.id].totals.revenue)}</td>
+                    <td style={tdR}>{naf.has("privRev") ? <span style={{color:C.info,fontSize:11}}>N/A</span> : money(s("privRev"))}</td>
+                    <td style={tdR}>{money(s("hmoRev"))}</td>
+                    <td style={tdR}>{s("nhiaRev")===null ? <span style={{color:C.inkFaint,fontSize:11}}>not obs.</span> : money(s("nhiaRev"))}</td>
+                    <td style={tdR}>{s("compRev")===null ? <span style={{color:C.inkFaint,fontSize:11}}>not obs.</span> : money(s("compRev"))}</td>
+                    <td style={{...tdR, color:C.ink}}>{money(model.kpis[h.id].totals.revenue)}</td>
                     <td style={tdR}>{money(model.kpis[h.id].totals.arpe)}</td>
-                    <td style={tdR}>{moneyK(mtd)}</td>
+                    <td style={tdR}>{money(mtd)}</td>
                   </tr>
                 );
               })}
