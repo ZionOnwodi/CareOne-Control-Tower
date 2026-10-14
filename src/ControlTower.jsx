@@ -1476,6 +1476,10 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
   const hEx = ex.filter(e => e.hospital === h.id && e.status !== "CLOSED");
   const series = K.perDay.filter(d => d.submitted).map(d => ({ date:dayLabel(d.date), revenue:d.revenue, attendance:d.attendance, arpe:d.arpe }));
 
+  const revDays = K.perDay.filter(d => d.submitted && d.revenue !== null).map(d => d.date);
+  const totalRevRange = revDays.length
+    ? `${dayLabel(revDays[0])} – ${dayLabel(revDays[revDays.length - 1])}${revDays.length < K.totals.daysSubmitted ? ` · ${K.totals.daysSubmitted - revDays.length} day${K.totals.daysSubmitted - revDays.length > 1 ? "s" : ""} blank` : ""}`
+    : "No revenue reported";
   const payerRev = [["privRev","Private"],["hmoRev","HMO"],["nhiaRev","NHIA"],["compRev","Company"]].map(([key,label]) => {
     let total = null, days = 0, first = null, last = null;
     h.records.filter(r => r.submitted).forEach(r => { const v = num(r.f[key]?.value); if (v !== null) { total = (total ?? 0) + v; days++; first = first ?? r.date; last = r.date; } });
@@ -1509,7 +1513,7 @@ function Hospitals({ model, selHospital, setSelHospital, thresholds, ex }) {
       )}
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))", gap:10, marginBottom:16 }}>
-        <Stat label="Total revenue" value={money(K.totals.revenue)} />
+        <Stat label="Total revenue" value={money(K.totals.revenue)} sub={totalRevRange} />
         {payerRev.map(p => (
           <Stat key={p.key} label={`${p.label} revenue`} value={p.na ? "N/A" : p.total === null ? "Not reported" : money(p.total)}
                 sub={p.na ? "Declared not applicable" : p.total === null ? "No value in any submitted day" : `${dayLabel(p.first)} – ${dayLabel(p.last)}${p.days < K.totals.daysSubmitted ? ` · ${K.totals.daysSubmitted - p.days} day${K.totals.daysSubmitted - p.days > 1 ? "s" : ""} blank` : ""}`} />
