@@ -105,7 +105,7 @@ const CONFIG = {
 const SOURCE_META = {
   type: "GOOGLE_SHEETS",
   status: "SNAPSHOT",
-  readAt: "2026-10-14T17:00:00+01:00",
+  readAt: "2026-10-14T12:50:00+01:00",
   note: "Read directly from the eleven live hospital sheets via the connected Drive account. Values are a point-in-time snapshot, not a live feed.",
 };
 

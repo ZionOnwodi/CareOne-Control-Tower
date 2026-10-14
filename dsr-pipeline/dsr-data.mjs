@@ -222,6 +222,7 @@ export function computeDSR() {
   dsrExceptions.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);
 
   return {
+    dataReadAt: source.meta?.readAt ?? null,
     asOfDate: period.asOfDate, dataThrough, period, daysElapsed, daysInMonth,
     snapshot: { revenue, attendance, admissions, arpe, conversion, networkAchievement, targetsKnown, totalHospitals: canon.length,
       trend: buildTrend(months, periodId, daysElapsed, { revenue, attendance, admissions, arpe, conversion }) },

@@ -181,6 +181,7 @@ export function computeWSR(weekStart = defaultWeekStart()) {
   wsrExceptions.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);
 
   return {
+    dataReadAt: loadFromSource(months[months.length - 1]).meta?.readAt ?? null,
     weekStart, weekEnd, dates, monthsLoaded: months,
     rangeLabel: shortRange(weekStart, weekEnd),
     snapshot: { ...totals, networkAchievement, targetsKnown, totalHospitals: canon.length,

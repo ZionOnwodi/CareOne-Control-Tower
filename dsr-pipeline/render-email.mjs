@@ -162,6 +162,8 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
   const cards = kpis.map(k => kpiCard(k, trendLabel));
   const cardsMob = kpis.map(k => kpiCardMobile(k, trendLabel));
 
+  // "Data as of": when the hospital Google Sheets were last read into the dashboard (Lagos time, as recorded).
+  const dataAsOf = iso => `${Number(iso.slice(8, 10))} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}, ${iso.slice(11, 16)} WAT`;
   const MON3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const shortDay = iso => `${Number(iso.slice(8, 10))} ${MON3[Number(iso.slice(5, 7)) - 1]}`;
   // A hospital that has not reported the report date keeps its last-known figures in the table;
@@ -387,6 +389,7 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
       <td valign="middle" style="border-bottom:1px solid ${LINE};font-size:1px;line-height:1px;">&nbsp;</td>
     </tr></table>
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin-top:8px;"><tr><td>${img("heartbeat", 46, 18, "")}</td></tr></table>
+    ${dsr.dataReadAt ? `<div align="center" style="${T(11, 400, DIM)}padding-top:8px;">Data as of ${dataAsOf(dsr.dataReadAt)}</div>` : ""}
   </td></tr>
 
   <tr><td bgcolor="${NAVY}" style="background-color:${NAVY};border-radius:0 0 14px 14px;height:14px;font-size:1px;line-height:14px;padding:0;">
