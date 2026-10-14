@@ -105,7 +105,7 @@ const CONFIG = {
 const SOURCE_META = {
   type: "GOOGLE_SHEETS",
   status: "SNAPSHOT",
-  readAt: "2026-10-14T16:00:00+01:00",
+  readAt: "2026-10-14T17:00:00+01:00",
   note: "Read directly from the eleven live hospital sheets via the connected Drive account. Values are a point-in-time snapshot, not a live feed.",
 };
 
@@ -404,7 +404,7 @@ const RAW = {
     { d:"2026-10-10", att:49, nreg:6, priv:1, hmo:45, lash:null, nhia:null, comp:3, adm:3, rConv:0.0612, onadm:10, disch:3, yld:40, rPctY:0.8163, tat:35.6, det:0, prom:36, indiff:4, rNPS:0.9, privRev:59400, hmoRev:1172049.27, nhiaRev:null, compRev:352980.2, rTotRev:1584429.47, rARPE:32335.3, rMTD:28637319.52, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"63.64%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
     { d:"2026-10-11", att:29, nreg:5, priv:1, hmo:27, lash:null, nhia:null, comp:1, adm:3, rConv:0.1034, onadm:7, disch:4, yld:25, rPctY:0.8621, tat:10.7, det:0, prom:22, indiff:3, rNPS:0.88, privRev:369275, hmoRev:862873.16, nhiaRev:null, compRev:242490, rTotRev:1474638.16, rARPE:50849.59, rMTD:30111957.68, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"66.92%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
     { d:"2026-10-12", att:88, nreg:15, priv:4, hmo:72, lash:null, nhia:null, comp:12, adm:6, rConv:0.0682, onadm:12, disch:2, yld:71, rPctY:0.8068, tat:41.7, det:0, prom:33, indiff:8, rNPS:0.8048780488, privRev:198535, hmoRev:1510062.45, nhiaRev:null, compRev:622493.87, rTotRev:2331091.32, rARPE:26489.67, rMTD:32443049, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"72.10%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
-    { d:"2026-10-13", att:123, nreg:20, priv:6, hmo:104, lash:null, nhia:null, comp:13, adm:12, rConv:0.0976, onadm:22, disch:7, yld:63, rPctY:0.5122, tat:37.6, det:3, prom:55, indiff:5, rNPS:0.8253968254, privRev:270000, hmoRev:null, nhiaRev:null, compRev:null, rTotRev:270000, rARPE:2195.12, rMTD:32713049, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"72.70%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
+    { d:"2026-10-13", att:123, nreg:20, priv:6, hmo:104, lash:null, nhia:null, comp:13, adm:12, rConv:0.0976, onadm:22, disch:7, yld:63, rPctY:0.5122, tat:37.6, det:3, prom:55, indiff:5, rNPS:0.8253968254, privRev:300000, hmoRev:2090691.71, nhiaRev:null, compRev:1717558.95, rTotRev:4108250.66, rARPE:33400.41, rMTD:36551299.66, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"81.23%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
   ],
   MTP: [
     { d:"2026-09-01", att:19, nreg:0, priv:5, hmo:14, lash:0, nhia:0, comp:0, adm:2, rConv:0.1053, onadm:3, disch:3, yld:10, rPctY:0.5263, tat:68, det:0, prom:10, indiff:0, rNPS:1, privRev:129000, hmoRev:323915.78, nhiaRev:0, compRev:0, rTotRev:452915.78, rARPE:23837.67, rMTD:452915.78, ops:{mort:null, ipc:null, medErr:null, esc:null, wait:null, coll:null, revAch:"1.01%", refund:null, bed:null, crit:null, pwr:null, amb:null, staff:null, vac:null, wfs:null, emr:null, out:null, rep:null} },
