@@ -115,7 +115,9 @@ export function computeWSR(weekStart = defaultWeekStart()) {
     const target = REVENUE_TARGETS_NGN[h.id];
     const weeklyTarget = weeklyTargetFor(h.id);
     const pct = weeklyTarget ? weekRevenue / weeklyTarget : null;
+    const lastInWeek = h.records.filter(r => r.submitted && dates.includes(r.date)).map(r => r.date).sort().pop() ?? null;
     return { id: h.id, name: h.name, weekRevenue, target, weeklyTarget, pct, status: achievementStatus(target, pct),
+      lastReport: lastInWeek, staleSince: missingByHospital[h.id].includes(weekEnd) ? lastInWeek : null,
       hasData: missingByHospital[h.id].length < dates.length };
   });
   let networkWeeklyTarget = 0, targetsKnown = 0, revenueOfTargeted = 0;

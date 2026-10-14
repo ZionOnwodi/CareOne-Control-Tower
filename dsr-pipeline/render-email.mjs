@@ -45,6 +45,7 @@ function imgUrl(name) {
 const RED = "#D31E24", RED_DEEP = "#A61B14", NAVY = "#14213D", INK = "#1F2937", DIM = "#6B7787";
 const LINE = "#E6E9EE", HEAD_BG = "#EEF1F5", PAGE = "#F4F6F8", WHITE = "#FFFFFF";
 const PINK = "#FDF1F1", PINK_LINE = "#F6D5D5";
+const AMBER_TEXT = "#B45309";
 const GREEN = "#159A5B", AMBER = "#F0A81C", GRAY_DOT = "#A7B0BC";
 const FONT = "font-family:Arial,Helvetica,sans-serif;";
 
@@ -161,12 +162,21 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
   const cards = kpis.map(k => kpiCard(k, trendLabel));
   const cardsMob = kpis.map(k => kpiCardMobile(k, trendLabel));
 
+  const MON3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const shortDay = iso => `${Number(iso.slice(8, 10))} ${MON3[Number(iso.slice(5, 7)) - 1]}`;
+  // A hospital that has not reported the report date keeps its last-known figures in the table;
+  // say so under its name so those numbers are not read as current.
+  const nameCell = h => h.staleSince !== undefined && h.staleSince !== null
+    ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">Last report: ${shortDay(h.staleSince)}</span>`
+    : h.staleSince === null && h.lastReport === null && h.hasData === false
+      ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">No report this period</span>`
+      : esc(h.name);
   const achievementRows = dsr.hospitalAchievement.map(h => {
     const dot = STATUS_DOT[h.status.tone] || GRAY_DOT;
     const label = STATUS_LABEL[h.status.label] || h.status.label;
     if (weekly) return `
     <tr>
-      <td style="${cell(T(13, 400, INK))}">${esc(h.name)}</td>
+      <td style="${cell(T(13, 400, INK))}">${nameCell(h)}</td>
       <td align="right" style="${cell(T(13, 400, INK))}">${num(h.weekRevenue)}</td>
       <td align="right" style="${cell(T(13, 400, INK))}">${h.weeklyTarget ? num(h.weeklyTarget) : "—"}</td>
       <td align="right" style="${cell(T(13, 400, INK))}">${h.pct !== null ? pct0(h.pct) : "—"}</td>
@@ -174,7 +184,7 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
     </tr>`;
     return `
     <tr>
-      <td style="${cell(T(13, 400, INK))}">${esc(h.name)}</td>
+      <td style="${cell(T(13, 400, INK))}">${nameCell(h)}</td>
       <td align="right" style="${cell(T(13, 400, INK))}">${h.mtd === null ? "—" : num(h.mtd)}</td>
       <td align="right" class="hide-mob" style="${cell(T(13, 400, INK))}">${h.target ? num(h.target) : "—"}</td>
       <td align="right" style="${cell(T(13, 400, INK))}">${h.targetToDate ? num(h.targetToDate) : "—"}</td>

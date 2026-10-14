@@ -163,7 +163,7 @@ export function computeDSR() {
     const dailyTarget = target ? target / daysInMonth : null;
     const pct = targetToDate ? mtd / targetToDate : null;
     const status = achievementStatus(target, pct);
-    return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
+    return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, lastReport: reporting[h.id].lastSubmitted, staleSince: missedReportDate(h) ? reporting[h.id].lastSubmitted : null, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
   });
 
   // ---- Exceptions Requiring Attention (DSR view — plain language, simplified from the full register) ----
