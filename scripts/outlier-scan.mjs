@@ -23,7 +23,12 @@ for (const [code, rows0] of Object.entries(RAW)) {
   rows.forEach((r, i) => {
     if (r.d < since) return;
     const others = rows.filter(x => x !== r && x.rTotRev != null && x.att > 0);
-    const flag = (sev, msg) => out.push({ code, d: r.d, sev, msg });
+    // Discharge days legitimately carry high revenue (inpatients settle bills on discharge — confirmed
+    // for Outreach Festac 14 Oct 2026: 16 discharges, ₦8.73M). Revenue spikes on such days are MED, with context.
+    const mDisch = med(rows.filter(x => x !== r && x.disch != null).map(x => x.disch));
+    const dischSpike = r.disch != null && mDisch != null && r.disch >= Math.max(8, 2.5 * mDisch);
+    const flag = (sev, msg) => out.push({ code, d: r.d, sev: dischSpike && sev === "HIGH" && /revenue|day total/.test(msg) ? "MED" : sev,
+      msg: dischSpike && /revenue|day total/.test(msg) ? `${msg} [${r.disch} discharges vs median ${mDisch} — likely discharge billing]` : msg });
     if (r.rTotRev != null && r.att > 0 && others.length >= 8) {
       const ppp = r.rTotRev / r.att, mPpp = med(others.map(x => x.rTotRev / x.att));
       if (mPpp && ppp > 2.5 * mPpp) flag(ppp >= 4 * mPpp ? "HIGH" : "MED", `revenue per patient ₦${n(ppp)} is ${(ppp / mPpp).toFixed(1)}x this hospital's median (₦${n(mPpp)})`);
