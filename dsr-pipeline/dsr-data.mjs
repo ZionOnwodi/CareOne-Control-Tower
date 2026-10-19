@@ -1,4 +1,5 @@
-import { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonical, computeHospitalKPIs, computeReporting, generateExceptions, CATEGORY } from "./engine.mjs";
+import { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonical, computeHospitalKPIs, computeReporting, generateExceptions, CATEGORY, RAW } from "./engine.mjs";
+import { outlierExceptions } from "../scripts/outlier-rules.mjs";
 
 /* ============================================================================
    CONFIG LAYER — Revenue targets
@@ -217,6 +218,10 @@ export function computeDSR() {
       priority: "LOW",
     });
   });
+
+  // 4. Unusual figures — the refresh outlier rules over the 7 days ending on the report date.
+  const nameOf = id => canon.find(h => h.id === id)?.name || id;
+  dsrExceptions.push(...outlierExceptions(RAW, nameOf, dayFmt, { from: shiftISO(dataThrough, -6), to: dataThrough }));
 
   const priorityRank = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   dsrExceptions.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);

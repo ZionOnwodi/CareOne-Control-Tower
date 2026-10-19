@@ -1,4 +1,5 @@
-import { buildCanonical, loadFromSource, computeHospitalKPIs, generateExceptions, CATEGORY } from "./engine.mjs";
+import { buildCanonical, loadFromSource, computeHospitalKPIs, generateExceptions, CATEGORY, RAW } from "./engine.mjs";
+import { outlierExceptions } from "../scripts/outlier-rules.mjs";
 import {
   REVENUE_TARGETS_NGN, ACHIEVEMENT_THRESHOLDS, achievementStatus, priorityForReportingGap,
   shiftISO, dayFmt, pctFmt, moneyFmt, DQ_PLAIN, MON,
@@ -176,6 +177,9 @@ export function computeWSR(weekStart = defaultWeekStart()) {
       priority: "LOW",
     });
   });
+
+  // 4. Unusual figures — the refresh outlier rules over the week's dates.
+  wsrExceptions.push(...outlierExceptions(RAW, id => canon.find(h => h.id === id)?.name || id, dayFmt, { from: weekStart, to: weekEnd }));
 
   const priorityRank = { HIGH: 0, MEDIUM: 1, LOW: 2 };
   wsrExceptions.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);

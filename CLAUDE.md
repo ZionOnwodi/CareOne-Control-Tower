@@ -19,4 +19,4 @@ Data lives inline as `const RAW = {…}` (not in `src/data/raw-data.json`). Only
 5. Production build (`npm run build`), commit and push to main, report the computed network totals as proof of a live-data run.
 
 ## Email reports (`dsr-pipeline/`)
-The footer shows "Data as of <readAt>" so readers can see how old the figures are. Hospitals that missed the report date show a "Last report: <date>" line under their name in the achievement table.
+The exception tables include "Unusual figure" rows from `scripts/outlier-rules.mjs` (DSR: 7 days ending on the report date; WSR: the week). When the owner confirms a flagged row is accurate, add it to `CONFIRMED_ACCURATE` in that file so it stops appearing in the emails. The footer shows "Data as of <readAt>" so readers can see how old the figures are. Hospitals that missed the report date show a "Last report: <date>" line under their name in the achievement table.

@@ -37,7 +37,7 @@ const sectionEnd = src.lastIndexOf("/* ====", end);
 const engineBody = src.slice(blockStart, sectionEnd);
 fs.writeFileSync(
   "./engine.mjs",
-  engineBody + "\nexport { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonical, computeHospitalKPIs, computeReporting, generateExceptions, CATEGORY };\n"
+  engineBody + "\nexport { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonical, computeHospitalKPIs, computeReporting, generateExceptions, CATEGORY, RAW };\n"
 );
 
 // 3. Compute + render.
