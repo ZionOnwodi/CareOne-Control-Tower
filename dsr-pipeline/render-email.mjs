@@ -143,12 +143,13 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
   const weekly = mode === "weekly";
   const s = dsr.snapshot, rs = dsr.reportingStatus, tr = s.trend || {};
   const day = dsr.daysElapsed, dim = dsr.daysInMonth;
-  const allReporting = rs.notReporting.length === 0;
+  const partial = rs.partiallyReporting || [];
+  const allReporting = rs.notReporting.length === 0 && partial.length === 0;
   const reportName = weekly ? "Weekly Situation Report" : "Daily Situation Report";
   const trendLabel = weekly ? "vs. last week" : "vs. last month";
 
   const preheader = weekly
-    ? `Week of ${dsr.rangeLabel}: network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reported all 7 days · ${dsr.exceptions.length} items need attention.`
+    ? `Week of ${dsr.rangeLabel}: network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reported all 7 days in full · ${dsr.exceptions.length} items need attention.`
     : `Network revenue ${money(s.revenue)} · ${rs.reportingCount}/${rs.totalCount} hospitals reporting · ${dsr.exceptions.length} items need attention.`;
 
   const kpis = [
@@ -168,7 +169,11 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
   const shortDay = iso => `${Number(iso.slice(8, 10))} ${MON3[Number(iso.slice(5, 7)) - 1]}`;
   // A hospital that has not reported the report date keeps its last-known figures in the table;
   // say so under its name so those numbers are not read as current.
-  const nameCell = h => h.staleSince !== undefined && h.staleSince !== null
+  const nameCell = h => h.partialSince
+    ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">Partial report for ${shortDay(h.partialSince.date)}: ${esc(h.partialSince.fields.join(", "))} not entered</span>`
+    : h.partialDays && h.partialDays.length
+    ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">Partial report: ${h.partialDays.map(shortDay).join(", ")}</span>`
+    : h.staleSince !== undefined && h.staleSince !== null
     ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">Last report: ${shortDay(h.staleSince)}</span>`
     : h.staleSince === null && h.lastReport === null && h.hasData === false
       ? `${esc(h.name)}<br><span style="${T(11, 400, AMBER_TEXT)}">No report this period</span>`
@@ -203,9 +208,13 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
     </tr>`).join("")
     : `<tr><td colspan="3" align="center" style="padding:16px 12px;${T(13, 400, DIM)}">${weekly ? "No items need attention this week." : "No items need attention today."}</td></tr>`;
 
+  const none = `<span style="${T(13, 400, INK)}">None</span>`;
+  const partialText = partial.length
+    ? partial.map(p => `<span style="${T(13, 400, INK)}">${esc(p.name)}${p.fields && p.fields.length ? ` <span style="color:${DIM};">(${esc(p.fields.join(", "))} not entered)</span>` : ""}</span>`).join(`<span style="${T(13, 400, DIM)}">&nbsp;&nbsp;|&nbsp;&nbsp;</span>`)
+    : none;
   const notReporting = allReporting
-    ? `<span style="${T(13, 400, INK)}">None &mdash; every hospital has reported.</span>`
-    : rs.notReporting.map(n => `<span style="${T(13, 400, INK)}">${esc(n)}</span>`).join(`<span style="${T(13, 400, DIM)}">&nbsp;&nbsp;|&nbsp;&nbsp;</span>`);
+    ? `<span style="${T(13, 400, INK)}">None &mdash; every hospital has reported in full.</span>`
+    : rs.notReporting.length === 0 ? none : rs.notReporting.map(n => `<span style="${T(13, 400, INK)}">${esc(n)}</span>`).join(`<span style="${T(13, 400, DIM)}">&nbsp;&nbsp;|&nbsp;&nbsp;</span>`);
 
   const workflowItem = (icon, label) => `${iconCell(icon, 22, 22, 6, "wf-ico")}<td valign="middle" style="${T(13.5, 400, NAVY, "white-space:nowrap;")}">${label}</td>`;
   const arrow = `<td valign="middle" align="center" class="wf-arrow" style="${T(16, 700, RED)}padding:0 8px;">&rarr;</td>`;
@@ -328,11 +337,20 @@ export function renderDSREmail(dsr, { mode = "daily" } = {}) {
                 ${iconCell("rs-alert", 30, 30, 10)}
                 <td valign="middle"><div style="${T(19, 700, allReporting ? GREEN : NAVY, "line-height:22px;")}">${rs.notReporting.length}</div><div style="${T(12, 400, DIM)}">Not Reporting</div></td>
               </tr></table>
+            </td><td valign="middle" width="150" class="rs-fig rs-fig-2" style="border-left:1px solid ${PINK_LINE};padding-left:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td valign="middle"><div style="${T(19, 700, partial.length ? NAVY : GREEN, "line-height:22px;")}">${partial.length}</div><div style="${T(12, 400, DIM)}">Partial Report</div></td>
+              </tr></table>
             </td>
           </tr></table>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;"><tr>
             <td bgcolor="#FBE3E3" style="background-color:#FBE3E3;border-radius:8px;padding:11px 14px;">
               <span style="${T(13, 700, RED)}">Not Reporting:</span>&nbsp;&nbsp; ${notReporting}
+            </td>
+          </tr></table>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;"><tr>
+            <td bgcolor="#FDF1DC" style="background-color:#FDF1DC;border-radius:8px;padding:11px 14px;">
+              <span style="${T(13, 700, AMBER_TEXT)}">Partial Report${weekly ? " (some days incomplete)" : ""}:</span>&nbsp;&nbsp; ${partialText}
             </td>
           </tr></table>
         </td></tr>

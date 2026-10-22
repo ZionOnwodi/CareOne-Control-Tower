@@ -150,8 +150,12 @@ export function computeDSR() {
   // Only the report date (dataThrough) counts: a hospital is "Not Reporting" if that day's report is
   // missing. Earlier month-to-date gaps still appear under Exceptions ("Missing reports") below.
   const missedReportDate = h => reporting[h.id].missing.includes(dataThrough);
-  const reportingNow = canon.filter(h => !missedReportDate(h));
+  // Complete = every core field for the report date is entered. A day with only some fields (e.g. revenue but no
+  // patient figures) is a PARTIAL report: it does not count as reporting.
+  const partialReportDate = h => reporting[h.id].incomplete.includes(dataThrough);
+  const reportingNow = canon.filter(h => !missedReportDate(h) && !partialReportDate(h));
   const notReporting = canon.filter(h => missedReportDate(h));
+  const partiallyReporting = canon.filter(h => !missedReportDate(h) && partialReportDate(h));
 
   // ---- Revenue Achievement by Hospital ----
   // "target" shown in the table stays the full monthly figure (the actual agreed target).
@@ -164,7 +168,7 @@ export function computeDSR() {
     const dailyTarget = target ? target / daysInMonth : null;
     const pct = targetToDate ? mtd / targetToDate : null;
     const status = achievementStatus(target, pct);
-    return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, lastReport: reporting[h.id].lastSubmitted, staleSince: missedReportDate(h) ? reporting[h.id].lastSubmitted : null, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
+    return { id: h.id, name: h.name, mtd, target, dailyTarget, targetToDate, pct, status, lastReport: reporting[h.id].lastSubmitted, partialSince: partialReportDate(h) ? { date: dataThrough, fields: reporting[h.id].incompleteDetail[dataThrough] } : null, staleSince: missedReportDate(h) ? reporting[h.id].lastSubmitted : null, hasData: reporting[h.id].missing.length < reporting[h.id].due.length };
   });
 
   // ---- Exceptions Requiring Attention (DSR view — plain language, simplified from the full register) ----
@@ -183,6 +187,20 @@ export function computeDSR() {
           ? `No report received for ${dayFmt(rep.missing[0])}.`
           : `${n} daily reports missing (last report received ${rep.lastSubmitted ? dayFmt(rep.lastSubmitted) : "never"}).`,
       priority: priorityForReportingGap(n),
+    });
+  });
+
+  // 1b. Partial reports — a record exists but core fields are missing.
+  canon.forEach(h => {
+    const rep = reporting[h.id], ds = rep.incomplete;
+    if (!ds.length) return;
+    const last = ds[ds.length - 1];
+    dsrExceptions.push({
+      hospital: h.name,
+      issue: ds.length === 1
+        ? `Partial report for ${dayFmt(last)}: ${rep.incompleteDetail[last].join(", ")} not entered.`
+        : `${ds.length} partial reports (${ds.map(dayFmt).join(", ")}); latest: ${rep.incompleteDetail[last].join(", ")} not entered on ${dayFmt(last)}.`,
+      priority: priorityForReportingGap(ds.length),
     });
   });
 
@@ -231,7 +249,8 @@ export function computeDSR() {
     asOfDate: period.asOfDate, dataThrough, period, daysElapsed, daysInMonth,
     snapshot: { revenue, attendance, admissions, arpe, conversion, networkAchievement, targetsKnown, totalHospitals: canon.length,
       trend: buildTrend(months, periodId, daysElapsed, { revenue, attendance, admissions, arpe, conversion }) },
-    reportingStatus: { reportingCount: reportingNow.length, totalCount: canon.length, notReporting: notReporting.map(h => h.name) },
+    reportingStatus: { reportingCount: reportingNow.length, totalCount: canon.length, notReporting: notReporting.map(h => h.name),
+      partiallyReporting: partiallyReporting.map(h => ({ name: h.name, fields: reporting[h.id].incompleteDetail[dataThrough] })) },
     hospitalAchievement,
     exceptions: dsrExceptions,
     thresholdsApproved: ACHIEVEMENT_THRESHOLDS.thresholdsApproved,

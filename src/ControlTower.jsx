@@ -647,6 +647,11 @@ const STATE = { VALID:"VALID", INCOMPLETE:"INCOMPLETE", EXCEPTION:"EXCEPTION", N
 const PAYER_ATT = ["priv","hmo","lash","nhia","comp"];
 const PAYER_REV = ["privRev","hmoRev","nhiaRev","compRev"];
 const CORE_FIELDS = ["att","adm","rTotRev"];
+// A day counts as a COMPLETE report only when the whole daily core is entered: patient flow (attendance, new
+// registrations, admissions, patients on admission, discharges) and total revenue. Revenue alone, or patients
+// alone, is a PARTIAL report. (Payer splits, NPS and the operations fields vary by hospital and are not required.)
+const COMPLETE_FIELDS = ["att","nreg","adm","onadm","disch","rTotRev"];
+const COMPLETE_PLAIN = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue" };
 
 const isErr = v => typeof v === "string" && v.startsWith("#");
 const num = v => (typeof v === "number" && isFinite(v) ? v : null);
@@ -704,9 +709,10 @@ function buildCanonical(source) {
       });
 
       const submitted = CORE_FIELDS.some(k => r[k] !== null && r[k] !== undefined);
-      const complete = ["att","adm","rTotRev"].every(k => r[k] !== null && r[k] !== undefined);
+      const gaps = COMPLETE_FIELDS.filter(k => r[k] === null || r[k] === undefined);
+      const complete = gaps.length === 0;
 
-      return { hospitalId:h.id, date:r.d, f, opsF, ops:r.ops || {}, submitted, complete, _raw:r };
+      return { hospitalId:h.id, date:r.d, f, opsF, ops:r.ops || {}, submitted, complete, gaps, _raw:r };
     });
 
     return { id:h.id, name:h.name, sheetId:h.sheetId, naFields:[...naFields], naReason:naCfg?.reason || null, records };
@@ -810,15 +816,15 @@ function expectedDates(cal, period) {
 function computeReporting(hosp, cal, period) {
   const due = expectedDates(cal, period);
   const byDate = new Map(hosp.records.map(r => [r.date, r]));
-  const missing = [], incomplete = [];
+  const missing = [], incomplete = [], incompleteDetail = {};
   due.forEach(d => {
     const r = byDate.get(d);
     if (!r || !r.submitted) missing.push(d);
-    else if (!r.complete) incomplete.push(d);
+    else if (!r.complete) { incomplete.push(d); incompleteDetail[d] = r.gaps.map(k => COMPLETE_PLAIN[k]); }
   });
   const submittedDates = hosp.records.filter(r => r.submitted).map(r => r.date).sort();
   return {
-    due, missing, incomplete,
+    due, missing, incomplete, incompleteDetail,
     lastSubmitted: submittedDates.length ? submittedDates[submittedDates.length - 1] : null,
     submissionRate: due.length ? (due.length - missing.length) / due.length : null,
     calendarConfirmed: cal.cadenceConfirmed,
@@ -886,9 +892,9 @@ function generateExceptions(canon, kpis, reporting, period) {
     // R2 — partial submission
     rep.incomplete.forEach(d => out.push(mk({
       rule:"R2", categoryKey:"REPORTING_COMPLIANCE", category:CATEGORY.REPORTING, hospital:h.id, domain:"Reporting",
-      issue:`Record for ${d} is present but core fields are not complete`,
-      current:"Attendance/admissions entered; revenue not entered",
-      expected:"All core fields completed before submission",
+      issue:`Partial report for ${d}: ${rep.incompleteDetail[d].join(", ")} not entered`,
+      current:`Partial report — ${rep.incompleteDetail[d].join(", ")} not entered`,
+      expected:"All core fields (patient flow and total revenue) completed before submission",
       action:"Complete the outstanding fields for this reporting date.", dates:[d],
     })));
 
@@ -1274,7 +1280,7 @@ export default function ControlTower() {
       arpe: t.attendance ? t.revenue / t.attendance : null,
       conversion: t.attendance ? t.admissions / t.attendance : null,
       nps: npsN ? npsSum / npsN : null, npsHospitals: npsN,
-      reportingToday: model.canon.filter(h => model.reporting[h.id].missing.length === 0).length,
+      reportingToday: model.canon.filter(h => model.reporting[h.id].missing.length === 0 && model.reporting[h.id].incomplete.length === 0).length,
       submissionRate: due * model.canon.length ? (due*model.canon.length - totalMissing)/(due*model.canon.length) : null,
       dueDates: due,
     };
@@ -1507,9 +1513,9 @@ function Overview({ model, network, ex, openEx, thresholds, setModule, setSelHos
                     <td style={tdR}>{k.nps===null ? <span style={{color:C.inkFaint}}>—</span> : pct(k.nps,1)}</td>
                     <td style={tdR}>{k.daysSubmitted}</td>
                     <td style={td}>
-                      {r.missing.length === 0
+                      {r.missing.length === 0 && r.incomplete.length === 0
                         ? <span style={{ color:C.green, fontSize:12 }}>complete</span>
-                        : <span style={{ color:C.amber, fontSize:12 }}>{r.missing.length} missing</span>}
+                        : <span style={{ color:C.amber, fontSize:12 }}>{[r.missing.length ? `${r.missing.length} missing` : null, r.incomplete.length ? `${r.incomplete.length} partial` : null].filter(Boolean).join(", ")}</span>}
                     </td>
                     <td style={td}><RagChip status={rag.status} small /></td>
                     <td style={tdR}>{hEx ? <span style={{ color:C.red }}>{hEx}</span> : <span style={{ color:C.inkFaint }}>0</span>}</td>
@@ -1902,7 +1908,7 @@ function Reporting({ model, cal, setCal }) {
         </p>
       </Panel>
 
-      <Panel title="Submission grid" note="One column per expected date. Filled = record present, hollow = incomplete, empty = no record.">
+      <Panel title="Submission grid" note="One column per expected date. Filled = complete report, hollow = partial report (core fields missing), empty = no record.">
         <div style={{ overflowX:"auto" }}>
           <table>
             <thead><tr>

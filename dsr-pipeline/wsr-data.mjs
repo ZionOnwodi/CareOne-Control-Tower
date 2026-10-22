@@ -91,6 +91,7 @@ function buildWeekTrend(weekStart, current) {
 export function computeWSR(weekStart = defaultWeekStart()) {
   validateWeekStart(weekStart);
   const dates = weekDates(weekStart);
+  const PLAIN_FIELD = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue" };
   const weekEnd = dates[6];
   const { canon, months } = canonForDates(dates);
   const kpis = Object.fromEntries(canon.map(h => [h.id, computeHospitalKPIs(h)]));
@@ -100,8 +101,12 @@ export function computeWSR(weekStart = defaultWeekStart()) {
     const have = new Set(h.records.filter(r => r.submitted).map(r => r.date));
     return [h.id, dates.filter(d => !have.has(d))];
   }));
-  const reportingNow = canon.filter(h => missingByHospital[h.id].length === 0);
+  // A day is complete only when the whole daily core is entered (see COMPLETE_FIELDS in the engine). A hospital
+  // counts as reporting for the week only if all 7 days are present AND complete.
+  const incompleteByHospital = Object.fromEntries(canon.map(h => [h.id, h.records.filter(r => r.submitted && !r.complete && dates.includes(r.date)).map(r => ({ d: r.date, fields: r.gaps.map(k => PLAIN_FIELD[k]) }))]));
+  const reportingNow = canon.filter(h => missingByHospital[h.id].length === 0 && incompleteByHospital[h.id].length === 0);
   const notReporting = canon.filter(h => missingByHospital[h.id].length > 0);
+  const partiallyReporting = canon.filter(h => missingByHospital[h.id].length === 0 && incompleteByHospital[h.id].length > 0);
 
   // ---- Network Snapshot (the 7 days only) ----
   const totals = networkTotals(canon, kpis);
@@ -119,6 +124,7 @@ export function computeWSR(weekStart = defaultWeekStart()) {
     const lastInWeek = h.records.filter(r => r.submitted && dates.includes(r.date)).map(r => r.date).sort().pop() ?? null;
     return { id: h.id, name: h.name, weekRevenue, target, weeklyTarget, pct, status: achievementStatus(target, pct),
       lastReport: lastInWeek, staleSince: missingByHospital[h.id].includes(weekEnd) ? lastInWeek : null,
+      partialDays: incompleteByHospital[h.id].map(x => x.d),
       hasData: missingByHospital[h.id].length < dates.length };
   });
   let networkWeeklyTarget = 0, targetsKnown = 0, revenueOfTargeted = 0;
@@ -140,6 +146,18 @@ export function computeWSR(weekStart = defaultWeekStart()) {
           ? `No report received for ${dayFmt(miss[0])}.`
           : `${miss.length} daily reports missing: ${miss.map(dayFmt).join(", ")}.`,
       priority: priorityForReportingGap(miss.length),
+    });
+  });
+
+  // 1b. Partial reports — the day is present but core fields are missing.
+  canon.forEach(h => {
+    const inc = incompleteByHospital[h.id]; if (!inc.length) return;
+    wsrExceptions.push({
+      hospital: h.name,
+      issue: inc.length === 1
+        ? `Partial report for ${dayFmt(inc[0].d)}: ${inc[0].fields.join(", ")} not entered.`
+        : `${inc.length} partial reports (${inc.map(x => dayFmt(x.d)).join(", ")}): core figures such as ${[...new Set(inc.flatMap(x => x.fields))].slice(0, 3).join(", ")} not entered.`,
+      priority: priorityForReportingGap(inc.length),
     });
   });
 
@@ -190,7 +208,8 @@ export function computeWSR(weekStart = defaultWeekStart()) {
     rangeLabel: shortRange(weekStart, weekEnd),
     snapshot: { ...totals, networkAchievement, targetsKnown, totalHospitals: canon.length,
       trend: buildWeekTrend(weekStart, totals) },
-    reportingStatus: { reportingCount: reportingNow.length, totalCount: canon.length, notReporting: notReporting.map(h => h.name) },
+    reportingStatus: { reportingCount: reportingNow.length, totalCount: canon.length, notReporting: notReporting.map(h => h.name),
+      partiallyReporting: partiallyReporting.map(h => ({ name: h.name, fields: [...new Set(incompleteByHospital[h.id].flatMap(x => x.fields))], days: incompleteByHospital[h.id].map(x => x.d) })) },
     missingByHospital: Object.fromEntries(canon.map(h => [h.name, missingByHospital[h.id]])),
     missingSunday: canon.filter(h => missingByHospital[h.id].includes(weekEnd)).map(h => ({
       name: h.name, reportedOtherDays: missingByHospital[h.id].length < dates.length })),
