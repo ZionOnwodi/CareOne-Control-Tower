@@ -739,9 +739,25 @@ const PAYER_REV = ["privRev","hmoRev","nhiaRev","compRev"];
 const CORE_FIELDS = ["att","adm","rTotRev"];
 // A day counts as a COMPLETE report only when the whole daily core is entered: patient flow (attendance, new
 // registrations, admissions, patients on admission, discharges) and total revenue. Revenue alone, or patients
-// alone, is a PARTIAL report. (Payer splits, NPS and the operations fields vary by hospital and are not required.)
+// alone, is a PARTIAL report. NPS and the operations fields vary by hospital and are not required.
+// Payer revenue (private / HMO / NHIA / company) is required only for payers the hospital normally reports
+// (see expectedPayerRev) — a payer it never fills in is not treated as a gap.
 const COMPLETE_FIELDS = ["att","nreg","adm","onadm","disch","rTotRev"];
-const COMPLETE_PLAIN = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue" };
+const COMPLETE_PLAIN = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue",
+  privRev:"private revenue", hmoRev:"HMO revenue", nhiaRev:"NHIA revenue", compRev:"company revenue" };
+const PAYER_OF_REV = { privRev:"priv", hmoRev:"hmo", nhiaRev:"nhia", compRev:"comp" };
+// A payer's revenue is expected on a day unless that day's own patient count for the payer is 0. It is expected
+// when the payer has patients that day and the hospital ever fills that column, or, when the day has no patient
+// figures at all, when the hospital filled it on at least half of its previous 7 days (minimum 3 days of history).
+function expectedPayerRev(rows, i, k) {
+  const r = rows[i], pk = PAYER_OF_REV[k];
+  if (r[pk] === 0) return false;
+  if (!rows.some(x => x[k] !== null && x[k] !== undefined)) return false;
+  if (typeof r[pk] === "number" && r[pk] > 0) return true;
+  const prev = rows.slice(Math.max(0, i - 7), i).filter(x => x.rTotRev !== null && x.rTotRev !== undefined);
+  if (prev.length < 3) return false;
+  return prev.filter(x => x[k] !== null && x[k] !== undefined).length * 2 >= prev.length;
+}
 
 const isErr = v => typeof v === "string" && v.startsWith("#");
 const num = v => (typeof v === "number" && isFinite(v) ? v : null);
@@ -799,7 +815,11 @@ function buildCanonical(source) {
       });
 
       const submitted = CORE_FIELDS.some(k => r[k] !== null && r[k] !== undefined);
-      const gaps = COMPLETE_FIELDS.filter(k => r[k] === null || r[k] === undefined);
+      const idx = h.rows.indexOf(r);
+      const gaps = [
+        ...COMPLETE_FIELDS.filter(k => r[k] === null || r[k] === undefined),
+        ...PAYER_REV.filter(k => !naFields.has(k) && (r[k] === null || r[k] === undefined) && expectedPayerRev(h.rows, idx, k)),
+      ];
       const complete = gaps.length === 0;
 
       return { hospitalId:h.id, date:r.d, f, opsF, ops:r.ops || {}, submitted, complete, gaps, _raw:r };

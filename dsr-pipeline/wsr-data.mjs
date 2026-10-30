@@ -91,7 +91,7 @@ function buildWeekTrend(weekStart, current) {
 export function computeWSR(weekStart = defaultWeekStart()) {
   validateWeekStart(weekStart);
   const dates = weekDates(weekStart);
-  const PLAIN_FIELD = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue" };
+  const PLAIN_FIELD = { att:"attendance", nreg:"new registrations", adm:"admissions", onadm:"patients on admission", disch:"discharges", rTotRev:"total revenue", privRev:"private revenue", hmoRev:"HMO revenue", nhiaRev:"NHIA revenue", compRev:"company revenue" };
   const weekEnd = dates[6];
   const { canon, months } = canonForDates(dates);
   const kpis = Object.fromEntries(canon.map(h => [h.id, computeHospitalKPIs(h)]));
