@@ -603,10 +603,11 @@ function buildMonthlyEmail(m) {
 
   // ---- 7. Trend ----
   const wk = m.weekly;
-  const mil = v => v === null || v === undefined ? "—" : (v / 1e6).toFixed(1);
-  const weekTbl = box_(`${HROW(`${th_("₦ millions")}${wk.weeks.map(w => th_(w.label.replace("–", "–<br>"), "right")).join("")}${th_(curShort, "right")}`)}
-    ${wk.rows.map((r, i) => ZROW(i, `${td_(esc(r.name))}${r.values.map(v => td_(mil(v), "right")).join("")}${td_(`<b>${mil(r.total)}</b>`, "right")}`)).join("\n    ")}
-    ${TROW(`${td_("Network")}${wk.network.map(v => td_(mil(v), "right")).join("")}${td_(mil(s.revenue), "right")}`)}`);
+  // Each figure carries its unit (₦9.5M = 9.5 million naira); the wk class tightens the columns on phones.
+  const wkCell = v => td_(mMoneyShort(v), "right", "", "nw");
+  const weekTbl = box_(`${HROW(`${th_("Hospital")}${wk.weeks.map(w => th_(w.label.replace("–", "–<br>"), "right")).join("")}${th_(curShort, "right")}`)}
+    ${wk.rows.map((r, i) => ZROW(i, `${td_(esc(r.name))}${r.values.map(wkCell).join("")}${td_(`<b>${mMoneyShort(r.total)}</b>`, "right", "", "nw")}`)).join("\n    ")}
+    ${TROW(`${td_("Network")}${wk.network.map(wkCell).join("")}${td_(mMoneyShort(s.revenue), "right", "", "nw")}`)}`);
   const n0 = m.network, n1 = m.prevNetwork;
   let momI = 0;
   const momRow = (label, a, b, f) => {
@@ -621,8 +622,8 @@ function buildMonthlyEmail(m) {
     momRow("Average NPS", n0.nps, n1.nps, "pct"), momRow("Average TAT (mins)", n0.tat, n1.tat, "dec"), momRow("Private share of revenue", n0.privShare, n1.privShare, "pct"),
     momRow("Reporting compliance", n0.compliance, n1.compliance, "pct")].join("")}`)
     : `<div style="color:${DIM};">No ${esc(m.prevLabel)} data, so no month-on-month comparison.</div>`;
-  const trendBody = `${mNote(`Revenue by Monday&ndash;Sunday week inside the month, in ₦ millions (the first and last weeks are part-weeks).${m.missingTail.length ? ` ${m.missingTail.map(mDay).join(" and ")} are not loaded yet, so the last week is understated.` : ""}`)}
-    ${weekTbl}
+  const trendBody = `${mNote(`Revenue by Monday&ndash;Sunday week inside the month, in millions of naira: <b>₦9.5M = ₦9,500,000</b>. The first and last weeks are part-weeks.${m.missingTail.length ? ` ${m.missingTail.map(mDay).join(" and ")} are not loaded yet, so the last week is understated.` : ""}`)}
+    ${weekTbl.replace('class="tbl"', 'class="tbl wk"')}
     ${mH("Month on month")}
     ${lfl ? `<div style="${S_(11.5, 400, AMBER_TEXT, "line-height:16px;padding-bottom:8px;")}">Network growth is overstated by the part-month ${prevShort} hospitals; like-for-like (${m.likeForLike.hospitals} hospitals): <b>${lfl}</b>.</div>` : ""}
     ${momTbl}
@@ -706,6 +707,8 @@ function buildMonthlyEmail(m) {
     .box { padding:14px 10px 12px !important; }
     .tbl td { padding:7px 3px !important; font-size:10.5px !important; line-height:14px !important; }
     .tbl td.st { white-space:normal !important; }
+    .wk td { padding:6px 3px !important; font-size:9.5px !important; }
+    .wk td:first-child { padding-left:4px !important; }
     .co, .half { display:block !important; width:100% !important; box-sizing:border-box !important; padding:0 0 8px !important; }
     .lg { display:block !important; padding:2px 0 !important; }
     .foot-mid { width:auto !important; white-space:normal !important; font-size:11px !important; line-height:15px !important; }
