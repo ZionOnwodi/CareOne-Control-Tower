@@ -8,7 +8,9 @@
     "send": "node send-email.mjs",
     "daily": "node run-daily-dsr.mjs && node send-email.mjs",
     "weekly-build": "node run-weekly-wsr.mjs",
-    "weekly": "node run-weekly-wsr.mjs && node send-email.mjs"
+    "weekly": "node run-weekly-wsr.mjs && node send-email.mjs",
+    "monthly-build": "node run-monthly-msr.mjs",
+    "monthly": "node run-monthly-msr.mjs && node send-email.mjs"
   },
   "dependencies": {
     "nodemailer": "^10.0.10"

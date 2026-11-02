@@ -1,0 +1,48 @@
+name: Monthly Situation Report
+
+# Builds the MSR for one full calendar month (compared with the month before) and emails it over SMTP
+# (logo and icons load from GitHub Pages; nothing is attached). Manual trigger only, by design.
+on:
+  workflow_dispatch:
+    inputs:
+      test:
+        description: "Mark the subject as TEST"
+        type: boolean
+        default: true
+      month:
+        description: "Month to report (YYYY-MM). Blank = the most recent completed month."
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: dsr-pipeline/package-lock.json
+      - name: Install
+        working-directory: dsr-pipeline
+        run: npm ci
+      - name: Build the report
+        working-directory: dsr-pipeline
+        run: node run-monthly-msr.mjs      # exits non-zero (and stops here) on a bad month or a structural data problem
+        env:
+          MONTH: ${{ github.event.inputs.month }}
+      - name: Send the report
+        working-directory: dsr-pipeline
+        run: node send-email.mjs
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}             # same recipients as the DSR
+          MAIL_TO_TEST: ${{ secrets.MAIL_TO_TEST }}   # test runs send ONLY here
+          TEST_MODE: ${{ github.event.inputs.test == 'true' && '1' || '0' }}
