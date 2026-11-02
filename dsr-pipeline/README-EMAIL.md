@@ -59,3 +59,15 @@ With no week given it reports the most recent completed week (Lagos calendar); t
 Add one more secret, `MAIL_TO_WEEKLY` (the weekly recipients, comma-separated). Then GitHub -> Actions ->
 **Weekly Situation Report** -> Run workflow. The schedule in `.github/workflows/weekly-wsr.yml` is
 commented out; uncomment it to send every Monday at 11:00 UTC (12:00 Lagos).
+
+## Monthly Situation Report
+`run-monthly-msr.mjs` builds the MSR for one full calendar month, compared with the month before; the same
+`send-email.mjs` sends it to the DSR recipients (`MAIL_TO`), or only to `MAIL_TO_TEST` when `test` is ticked.
+With no month given it reports the most recent completed month (Lagos calendar); to pick one:
+
+    node run-monthly-msr.mjs --month 2026-10
+
+The headline is revenue achievement per hospital against the FULL monthly target (no pro-rating). A hospital
+with only part of a month is flagged, not pro-rated. Row-level data-quality issues (rule R4) are listed in the
+report and never stop it; only structural problems do (bad month, missing hospitals, no data at all).
+Manual trigger only: GitHub -> Actions -> **Monthly Situation Report** -> Run workflow.
