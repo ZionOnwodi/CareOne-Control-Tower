@@ -10,6 +10,11 @@ on:
         description: "Mark the subject as TEST"
         type: boolean
         default: true
+      report_date:
+        description: "Report for this date (YYYY-MM-DD). Leave blank for the latest day with data."
+        type: string
+        required: false
+        default: ""
   # schedule:
   #   - cron: "0 5 * * *"   # 05:00 UTC = 06:00 Lagos (WAT, UTC+1), every day
 
@@ -30,6 +35,8 @@ jobs:
       - name: Build the report
         working-directory: dsr-pipeline
         run: node run-daily-dsr.mjs        # exits non-zero (and stops here) if the data pull looks broken
+        env:
+          REPORT_DATE: ${{ github.event.inputs.report_date }}
       - name: Send the report
         working-directory: dsr-pipeline
         run: node send-email.mjs

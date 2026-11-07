@@ -42,6 +42,20 @@ fs.writeFileSync(
   engineBody + "\nexport { CONFIG, getAvailableMonths, derivePeriod, loadFromSource, buildCanonical, computeHospitalKPIs, computeReporting, generateExceptions, CATEGORY, RAW };\n"
 );
 
+// 2b. Optional REPORT_DATE (YYYY-MM-DD): build the report as it stood on that day, ignoring any later rows.
+//     Blank = the latest date in the data (the normal daily run).
+const reportDate = (process.env.REPORT_DATE || "").trim();
+if (reportDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)) { console.error(`REPORT_DATE must be YYYY-MM-DD, got "${reportDate}"`); process.exit(1); }
+  const { RAW } = await import("./engine.mjs");
+  const latest = Object.values(RAW).flat().map(r => r.d).sort().pop();
+  if (reportDate > latest) { console.error(`REPORT_DATE ${reportDate} is after the latest data (${latest}).`); process.exit(1); }
+  let dropped = 0;
+  for (const rows of Object.values(RAW)) for (let i = rows.length - 1; i >= 0; i--) if (rows[i].d > reportDate) { rows.splice(i, 1); dropped++; }
+  if (!Object.values(RAW).flat().some(r => r.d === reportDate)) { console.error(`No data on ${reportDate}.`); process.exit(1); }
+  console.log(`REPORT_DATE ${reportDate}: ignoring ${dropped} later rows.`);
+}
+
 // 3. Compute + render.
 const { computeDSR } = await import("./dsr-data.mjs?update=" + Date.now());
 const { renderDSREmail } = await import("./render-email.mjs?update=" + Date.now());

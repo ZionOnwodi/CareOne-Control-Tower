@@ -71,3 +71,6 @@ The headline is revenue achievement per hospital against the FULL monthly target
 with only part of a month is flagged, not pro-rated. Row-level data-quality issues (rule R4) are listed in the
 report and never stop it; only structural problems do (bad month, missing hospitals, no data at all).
 Manual trigger only: GitHub -> Actions -> **Monthly Situation Report** -> Run workflow.
+
+## Sending the DSR for an earlier day
+Actions → Daily Situation Report → Run workflow → fill **report_date** (YYYY-MM-DD) to build the report as it stood on that day (later rows are ignored; the subject carries that date). Leave it blank for the latest day with data. Run once with **test** ticked first. A date after the latest data, or with no data, stops the run.
