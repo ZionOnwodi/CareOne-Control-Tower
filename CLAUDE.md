@@ -5,7 +5,7 @@ Data lives inline as `const RAW = {…}` (not in `src/data/raw-data.json`). Only
 
 1. Pre-flight: main clean, no open PRs or stuck workflow runs; report anything half-finished and stop.
    **Freshness (lesson from 14 Oct 2026):** the dashboard and the daily/weekly emails read the data committed on main, never the live sheets. A report sent after a sheet was edited, but before the refresh was re-run, shows stale figures (Grovers showed ₦32.7M instead of ₦36.6M because Oct 13 was completed after the download).
-   - Always re-read **all 11** sheets on a refresh, not just the one the owner mentions, unless the owner explicitly says "only X". If only some sheets are re-read, say so in the report and state that the others are not refreshed.
+   - Always re-read **all 10** sheets (Roding was dropped on 7 Nov 2026 — CareOne no longer operates there; it is out of the hospital list, thresholds, data and targets, so do not re-add it) on a refresh, not just the one the owner mentions, unless the owner explicitly says "only X". If only some sheets are re-read, say so in the report and state that the others are not refreshed.
    - Before reporting "current", call Drive `get_file_metadata` on every sheet and compare `modifiedTime` with the time of the downloads; re-pull any sheet edited since.
    - Set `SOURCE_META.readAt` (Lagos, +01:00) to the **real** time of the oldest sheet download in the data, taken from `TZ=Africa/Lagos date` — never an estimate. The emails print it as "Data as of …" in the footer. Commit timestamps are UTC; use Lagos time when quoting times to the owner.
    - End every refresh report with: "Data current as of HH:MM WAT; sheets re-read: …; any edited since: …".

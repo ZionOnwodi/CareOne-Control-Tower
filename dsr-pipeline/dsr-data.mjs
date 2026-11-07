@@ -12,7 +12,7 @@ import { outlierExceptions } from "../scripts/outlier-rules.mjs";
    this file, wsr-data.mjs or the email template needs to change.
    ============================================================================ */
 export const REVENUE_TARGETS_NGN = {
-  ULT: 200000000, FHM: 10000000, NLB: 150000000, ROD: 20000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
+  ULT: 200000000, FHM: 10000000, NLB: 150000000, TAL: 40000000, HOS: 45000000, GRV: 300000000, MTP: 40000000,
   OLK: 75000000, OFE: 70000000, OOK: 50000000,
 };
 
